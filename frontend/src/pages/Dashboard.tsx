@@ -1,7 +1,7 @@
-import { useMemo } from "react"
+import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
-import { endOfMonth, startOfMonth } from "date-fns"
-import { ArrowDownRight, ArrowUpRight, PiggyBank, Repeat, Target, Wallet } from "lucide-react"
+import { eachDayOfInterval, format, parseISO } from "date-fns"
+import { ArrowDownRight, ArrowUpRight, PiggyBank, Plus, Repeat, Scale, Target, Wallet } from "lucide-react"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { Card, CardHeader } from "@/components/ui/Card"
 import { StatTile } from "@/components/ui/StatTile"
@@ -9,12 +9,16 @@ import { Badge } from "@/components/ui/Badge"
 import { Meter } from "@/components/ui/Meter"
 import { EmptyState } from "@/components/ui/EmptyState"
 import { PageSpinner } from "@/components/ui/Spinner"
+import { Button } from "@/components/ui/Button"
 import { CategoryBarChart } from "@/components/charts/CategoryBarChart"
+import { SpendTrendChart, type DailySpend } from "@/components/charts/SpendTrendChart"
+import { TransactionFormModal } from "@/components/transactions/TransactionFormModal"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useSubscriptions } from "@/hooks/useSubscriptions"
 import { useGoals } from "@/hooks/useGoals"
-import { formatCurrency, formatDate, relativeDueLabel, titleCase, daysUntil } from "@/lib/format"
-import type { CategorySummary } from "@/lib/types"
+import { computeDelta, daysUntil, formatCurrency, relativeDueLabel, titleCase } from "@/lib/format"
+import { getPeriodRange, PERIOD_OPTIONS, type PeriodKey } from "@/lib/period"
+import type { CategorySummary, Transaction } from "@/lib/types"
 
 const MONTHLY_MULTIPLIER: Record<string, number> = {
   weekly: 52 / 12,
@@ -22,35 +26,73 @@ const MONTHLY_MULTIPLIER: Record<string, number> = {
   yearly: 1 / 12,
 }
 
-export default function Dashboard() {
-  const monthStart = useMemo(() => startOfMonth(new Date()).toISOString().slice(0, 10), [])
-  const monthEnd = useMemo(() => endOfMonth(new Date()).toISOString().slice(0, 10), [])
+function summarizePeriod(rows: Transaction[]) {
+  let spend = 0
+  let income = 0
+  for (const t of rows) {
+    const amount = Number(t.amount)
+    if (t.type === "debit") spend += amount
+    else income += amount
+  }
+  return { spend, income, net: income - spend }
+}
 
-  const monthTx = useTransactions({ start_date: monthStart, end_date: monthEnd })
+function PeriodSelector({ value, onChange }: { value: PeriodKey; onChange: (key: PeriodKey) => void }) {
+  return (
+    <div className="flex items-center gap-1 rounded-lg bg-[var(--surface-sunken)] p-1">
+      {PERIOD_OPTIONS.map((opt) => (
+        <button
+          key={opt.key}
+          onClick={() => onChange(opt.key)}
+          className={
+            "rounded-md px-2.5 py-1.5 text-xs font-medium transition-colors " +
+            (value === opt.key
+              ? "bg-[var(--surface-card)] text-[var(--text-primary)] shadow-sm"
+              : "text-[var(--text-muted)] hover:text-[var(--text-primary)]")
+          }
+        >
+          {opt.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+export default function Dashboard() {
+  const [period, setPeriod] = useState<PeriodKey>("this-month")
+  const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const range = useMemo(() => getPeriodRange(period), [period])
+
+  const currentTx = useTransactions({ start_date: range.start, end_date: range.end })
+  const previousTx = useTransactions({ start_date: range.prevStart, end_date: range.prevEnd })
   const recentTx = useTransactions()
   const subs = useSubscriptions(true)
   const goals = useGoals()
 
-  const { spend, income, categorySummary } = useMemo(() => {
-    const rows = monthTx.data ?? []
-    let spendTotal = 0
-    let incomeTotal = 0
+  const current = useMemo(() => summarizePeriod(currentTx.data ?? []), [currentTx.data])
+  const previous = useMemo(() => summarizePeriod(previousTx.data ?? []), [previousTx.data])
+
+  const categorySummary = useMemo(() => {
     const byCategory = new Map<string, number>()
-    for (const t of rows) {
-      const amount = Number(t.amount)
-      if (t.type === "debit") {
-        spendTotal += amount
-        byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + amount)
-      } else {
-        incomeTotal += amount
-      }
+    for (const t of currentTx.data ?? []) {
+      if (t.type !== "debit") continue
+      byCategory.set(t.category, (byCategory.get(t.category) ?? 0) + Number(t.amount))
     }
-    const categorySummary: CategorySummary[] = Array.from(byCategory, ([category, total]) => ({
-      category,
-      total,
-    }))
-    return { spend: spendTotal, income: incomeTotal, categorySummary }
-  }, [monthTx.data])
+    const rows: CategorySummary[] = Array.from(byCategory, ([category, total]) => ({ category, total }))
+    return rows
+  }, [currentTx.data])
+
+  const dailyTrend = useMemo<DailySpend[]>(() => {
+    const byDate = new Map<string, number>()
+    for (const t of currentTx.data ?? []) {
+      if (t.type !== "debit") continue
+      byDate.set(t.occurred_on, (byDate.get(t.occurred_on) ?? 0) + Number(t.amount))
+    }
+    return eachDayOfInterval({ start: parseISO(range.start), end: parseISO(range.end) }).map((d) => {
+      const key = format(d, "yyyy-MM-dd")
+      return { date: key, total: byDate.get(key) ?? 0 }
+    })
+  }, [currentTx.data, range.start, range.end])
 
   const monthlySubscriptionCost = useMemo(() => {
     return (subs.data ?? []).reduce((sum, s) => {
@@ -66,7 +108,8 @@ export default function Dashboard() {
     return { target, current, pct: target > 0 ? (current / target) * 100 : 0 }
   }, [goals.data])
 
-  const isLoading = monthTx.isLoading || recentTx.isLoading || subs.isLoading || goals.isLoading
+  const isLoading =
+    currentTx.isLoading || previousTx.isLoading || recentTx.isLoading || subs.isLoading || goals.isLoading
 
   if (isLoading) {
     return (
@@ -79,20 +122,42 @@ export default function Dashboard() {
 
   return (
     <>
-      <PageHeader title="Dashboard" description="Your money, subscriptions, and goals at a glance." />
+      <PageHeader
+        title="Dashboard"
+        description="Your money, subscriptions, and goals at a glance."
+        action={
+          <div className="flex items-center gap-3">
+            <PeriodSelector value={period} onChange={setPeriod} />
+            <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setQuickAddOpen(true)}>
+              Add transaction
+            </Button>
+          </div>
+        }
+      />
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatTile
-          label="Spend this month"
-          value={formatCurrency(spend)}
+          label="Spend"
+          value={formatCurrency(current.spend)}
           icon={<ArrowDownRight />}
           tone="critical"
+          delta={computeDelta(current.spend, previous.spend, false)}
+          hint={`vs ${formatCurrency(previous.spend)} prior period`}
         />
         <StatTile
-          label="Income this month"
-          value={formatCurrency(income)}
+          label="Income"
+          value={formatCurrency(current.income)}
           icon={<ArrowUpRight />}
           tone="good"
+          delta={computeDelta(current.income, previous.income, true)}
+          hint={`vs ${formatCurrency(previous.income)} prior period`}
+        />
+        <StatTile
+          label="Net"
+          value={formatCurrency(current.net)}
+          icon={<Scale />}
+          tone={current.net >= 0 ? "good" : "critical"}
+          delta={computeDelta(current.net, previous.net, true)}
         />
         <StatTile
           label="Subscriptions / mo"
@@ -103,14 +168,25 @@ export default function Dashboard() {
         <StatTile
           label="Goals progress"
           value={goalsProgress ? `${goalsProgress.pct.toFixed(0)}%` : "—"}
-          hint={goalsProgress ? `${formatCurrency(goalsProgress.current)} of ${formatCurrency(goalsProgress.target)}` : "No goals yet"}
+          hint={
+            goalsProgress
+              ? `${formatCurrency(goalsProgress.current)} of ${formatCurrency(goalsProgress.target)}`
+              : "No goals yet"
+          }
           icon={<Target />}
         />
       </div>
 
+      <Card className="mt-4">
+        <CardHeader title="Daily spend" subtitle={range.label} />
+        <div className="px-5 pb-5 pt-4">
+          <SpendTrendChart data={dailyTrend} />
+        </div>
+      </Card>
+
       <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-5">
         <Card className="lg:col-span-3">
-          <CardHeader title="Spending by category" subtitle="This month, debits only" />
+          <CardHeader title="Spending by category" subtitle={`${range.label}, debits only`} />
           <div className="px-5 pb-5 pt-4">
             <CategoryBarChart data={categorySummary} />
           </div>
@@ -179,7 +255,7 @@ export default function Dashboard() {
                         {titleCase(t.category)}
                       </p>
                       <p className="text-xs text-[var(--text-muted)]">
-                        {formatDate(t.occurred_on)}
+                        {t.occurred_on}
                         {t.note ? ` · ${t.note}` : ""}
                       </p>
                     </div>
@@ -230,6 +306,8 @@ export default function Dashboard() {
           </div>
         </Card>
       </div>
+
+      <TransactionFormModal open={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
     </>
   )
 }

@@ -66,3 +66,28 @@ const CATEGORY_SLOTS = [
 export function categoryColor(index: number): string {
   return CATEGORY_SLOTS[index % CATEGORY_SLOTS.length]
 }
+
+export interface Delta {
+  text: string
+  tone: "good" | "critical" | "neutral"
+}
+
+/**
+ * Signed % change of `current` vs `previous`, colored by whether the *direction*
+ * of change is favorable (e.g. spend going up is unfavorable, income going up is).
+ * Returns null when there's nothing meaningful to compare (both zero).
+ */
+export function computeDelta(current: number, previous: number, upIsGood: boolean): Delta | null {
+  if (previous === 0) {
+    if (current === 0) return null
+    return { text: "New", tone: "neutral" }
+  }
+  const percent = ((current - previous) / Math.abs(previous)) * 100
+  if (Math.abs(percent) < 0.5) return { text: "Flat", tone: "neutral" }
+  const up = percent > 0
+  const favorable = up === upIsGood
+  return {
+    text: `${up ? "▲" : "▼"} ${Math.abs(percent).toFixed(0)}%`,
+    tone: favorable ? "good" : "critical",
+  }
+}
