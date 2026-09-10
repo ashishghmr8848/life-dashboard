@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { CalendarCheck2, CheckCircle2, Plus, Repeat, Trash2 } from "lucide-react"
+import { CheckCircle2, Plus, Repeat, Trash2 } from "lucide-react"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { Card } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
@@ -117,15 +117,7 @@ export default function Subscriptions() {
               <Card key={s.id} className="p-5">
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="flex items-center gap-1.5 font-medium text-[var(--text-primary)]">
-                      {s.name}
-                      {s.calendar_event_id && (
-                        <CalendarCheck2
-                          className="h-3.5 w-3.5 text-[var(--text-muted)]"
-                          aria-label="Synced to Google Calendar"
-                        />
-                      )}
-                    </p>
+                    <p className="font-medium text-[var(--text-primary)]">{s.name}</p>
                     <p className="mt-0.5 text-xs text-[var(--text-muted)]">{titleCase(s.billing_cycle)}</p>
                   </div>
                   <Badge tone={s.active ? "accent" : "neutral"}>{s.active ? "Active" : "Paused"}</Badge>

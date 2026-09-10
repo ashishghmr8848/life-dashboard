@@ -6,7 +6,6 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
-from app.integrations.sync_hooks import sync_subscription, unsync_subscription
 from app.models.subscription import Subscription
 from app.models.user import User
 from app.schemas.subscription import SubscriptionCreate, SubscriptionOut, SubscriptionUpdate
@@ -24,7 +23,6 @@ def create_subscription(
     db.add(subscription)
     db.commit()
     db.refresh(subscription)
-    sync_subscription(db, current_user.id, subscription)
     return subscription
 
 
@@ -74,12 +72,6 @@ def update_subscription(
         setattr(subscription, field, value)
     db.commit()
     db.refresh(subscription)
-    if subscription.active:
-        sync_subscription(db, current_user.id, subscription)
-    else:
-        unsync_subscription(db, current_user.id, subscription)
-        subscription.calendar_event_id = None
-        db.commit()
     return subscription
 
 
@@ -96,6 +88,5 @@ def delete_subscription(
     )
     if not subscription:
         raise HTTPException(status_code=404, detail="Subscription not found")
-    unsync_subscription(db, current_user.id, subscription)
     db.delete(subscription)
     db.commit()

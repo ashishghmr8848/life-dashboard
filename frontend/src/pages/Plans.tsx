@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { CalendarCheck2, CalendarClock, ClipboardList, Plus, Trash2 } from "lucide-react"
+import { CalendarClock, ClipboardList, Plus, Trash2 } from "lucide-react"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { Card } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
@@ -93,15 +93,7 @@ export default function Plans() {
           {data.map((p) => (
             <Card key={p.id} className="flex flex-col p-5">
               <div className="flex items-start justify-between gap-2">
-                <p className="flex items-center gap-1.5 font-medium text-[var(--text-primary)]">
-                  {p.title}
-                  {p.calendar_event_id && (
-                    <CalendarCheck2
-                      className="h-3.5 w-3.5 shrink-0 text-[var(--text-muted)]"
-                      aria-label="Synced to Google Calendar"
-                    />
-                  )}
-                </p>
+                <p className="font-medium text-[var(--text-primary)]">{p.title}</p>
                 <button
                   aria-label="Delete plan"
                   onClick={() => setDeleteTarget(p)}

@@ -50,23 +50,4 @@ def decode_access_token(token: str) -> str:
     """Returns the subject (user id) encoded in the token. Raises jwt.PyJWTError
     (ExpiredSignatureError, InvalidTokenError, ...) on anything invalid."""
     payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-    if payload.get("purpose") is not None:
-        raise jwt.InvalidTokenError("Not a session token")
-    return payload["sub"]
-
-
-def create_oauth_state_token(subject: str) -> str:
-    """A short-lived, single-purpose token carrying the user's id through a
-    third-party OAuth redirect round-trip (Google never sees our session token -
-    it only ever gets this back to us as an opaque `state` param). Tagged with
-    `purpose` so it's rejected if anyone tries to use it as a session token."""
-    now = datetime.now(timezone.utc)
-    payload = {"sub": subject, "purpose": "oauth_state", "iat": now, "exp": now + timedelta(minutes=10)}
-    return jwt.encode(payload, JWT_SECRET_KEY, algorithm=JWT_ALGORITHM)
-
-
-def decode_oauth_state_token(token: str) -> str:
-    payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
-    if payload.get("purpose") != "oauth_state":
-        raise jwt.InvalidTokenError("Not an OAuth state token")
     return payload["sub"]

@@ -30,7 +30,6 @@ class SubscriptionUpdate(BaseModel):
 
 class SubscriptionOut(SubscriptionBase):
     id: uuid.UUID
-    calendar_event_id: Optional[str] = None
     created_at: datetime
 
     class Config:

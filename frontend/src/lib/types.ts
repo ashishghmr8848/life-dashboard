@@ -30,7 +30,6 @@ export interface Subscription {
   billing_cycle: BillingCycle
   next_due_date: string
   active: boolean
-  calendar_event_id: string | null
   created_at: string
 }
 
@@ -63,7 +62,6 @@ export interface Plan {
   title: string
   description: string | null
   linked_date: string | null
-  calendar_event_id: string | null
   created_at: string
 }
 
@@ -126,17 +124,4 @@ export interface AdminUserDetail {
   subscriptions: Subscription[]
   goals: Goal[]
   plans: Plan[]
-}
-
-export interface GoogleStatus {
-  connected: boolean
-  google_email: string | null
-  calendar_id: string | null
-  connected_at: string | null
-}
-
-export interface GoogleSyncResult {
-  subscriptions_synced: number
-  plans_synced: number
-  errors: string[]
 }

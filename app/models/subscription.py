@@ -25,7 +25,6 @@ class Subscription(Base):
     billing_cycle = Column(Enum(BillingCycle), nullable=False, default=BillingCycle.monthly)
     next_due_date = Column(Date, nullable=False, default=date.today)
     active = Column(Boolean, default=True)
-    calendar_event_id = Column(String(255), nullable=True)  # Google Calendar event id, once synced
 
     created_at = Column(DateTime, default=datetime.utcnow)
 

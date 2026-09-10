@@ -15,6 +15,5 @@ class Plan(Base):
     title = Column(String(200), nullable=False)
     description = Column(Text, nullable=True)
     linked_date = Column(DateTime, nullable=True)
-    calendar_event_id = Column(String(255), nullable=True)  # Google Calendar event id, once synced
 
     created_at = Column(DateTime, default=datetime.utcnow)

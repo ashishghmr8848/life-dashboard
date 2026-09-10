@@ -9,7 +9,6 @@ import Transactions from "@/pages/Transactions"
 import Subscriptions from "@/pages/Subscriptions"
 import Goals from "@/pages/Goals"
 import Plans from "@/pages/Plans"
-import Settings from "@/pages/Settings"
 import AdminDashboard from "@/pages/admin/AdminDashboard"
 import AdminUserDetail from "@/pages/admin/AdminUserDetail"
 
@@ -32,7 +31,6 @@ export default function App() {
           <Route path="/subscriptions" element={<Subscriptions />} />
           <Route path="/goals" element={<Goals />} />
           <Route path="/plans" element={<Plans />} />
-          <Route path="/settings" element={<Settings />} />
 
           <Route element={<AdminRoute />}>
             <Route path="/admin" element={<AdminDashboard />} />
