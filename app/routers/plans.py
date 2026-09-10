@@ -6,6 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.database import get_db
+from app.integrations.sync_hooks import sync_plan, unsync_plan
 from app.models.plan import Plan
 from app.models.user import User
 from app.schemas.plan import PlanCreate, PlanOut, PlanUpdate
@@ -23,6 +24,7 @@ def create_plan(
     db.add(plan)
     db.commit()
     db.refresh(plan)
+    sync_plan(db, current_user.id, plan)
     return plan
 
 
@@ -57,6 +59,12 @@ def update_plan(
         setattr(plan, field, value)
     db.commit()
     db.refresh(plan)
+    if plan.linked_date:
+        sync_plan(db, current_user.id, plan)
+    else:
+        unsync_plan(db, current_user.id, plan)
+        plan.calendar_event_id = None
+        db.commit()
     return plan
 
 
@@ -69,5 +77,6 @@ def delete_plan(
     plan = db.query(Plan).filter(Plan.id == plan_id, Plan.user_id == current_user.id).first()
     if not plan:
         raise HTTPException(status_code=404, detail="Plan not found")
+    unsync_plan(db, current_user.id, plan)
     db.delete(plan)
     db.commit()

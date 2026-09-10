@@ -12,10 +12,11 @@ pyjwt==2.9.0
 python-multipart==0.0.9
 email-validator==2.2.0
 
-# Add these when you build Phase 3 (Google Calendar sync):
-# google-api-python-client==2.144.0
-# google-auth-httplib2==0.2.0
-# google-auth-oauthlib==1.2.1
+# Phase 3 - Google Calendar sync
+google-auth==2.34.0
+google-auth-oauthlib==1.2.1
+google-api-python-client==2.144.0
+cryptography==43.0.1
 
 # Add these when you build Phase 5 (scheduled jobs):
 # apscheduler==3.10.4

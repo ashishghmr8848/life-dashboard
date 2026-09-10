@@ -127,3 +127,16 @@ export interface AdminUserDetail {
   goals: Goal[]
   plans: Plan[]
 }
+
+export interface GoogleStatus {
+  connected: boolean
+  google_email: string | null
+  calendar_id: string | null
+  connected_at: string | null
+}
+
+export interface GoogleSyncResult {
+  subscriptions_synced: number
+  plans_synced: number
+  errors: string[]
+}

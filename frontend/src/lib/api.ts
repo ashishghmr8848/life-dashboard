@@ -6,6 +6,8 @@ import type {
   CategorySummary,
   Goal,
   GoalInput,
+  GoogleStatus,
+  GoogleSyncResult,
   LoginInput,
   Plan,
   PlanInput,
@@ -189,5 +191,29 @@ export const plansApi = {
   },
   remove: async (id: string) => {
     await api.delete(`/plans/${id}`)
+  },
+}
+
+// ---- Integrations ----
+
+export const integrationsApi = {
+  googleStatus: async () => {
+    const { data } = await api.get<GoogleStatus>("/integrations/google/status")
+    return data
+  },
+  googleConnect: async () => {
+    // Returns the consent URL rather than redirecting itself, so the caller can
+    // do `window.location.href = ...` - a bare navigation can't carry our
+    // Authorization header through Google's redirect round-trip, so this call
+    // has to happen first, authenticated, before the browser ever leaves the app.
+    const { data } = await api.get<{ authorization_url: string }>("/integrations/google/connect")
+    return data.authorization_url
+  },
+  googleDisconnect: async () => {
+    await api.post("/integrations/google/disconnect")
+  },
+  googleSync: async () => {
+    const { data } = await api.post<GoogleSyncResult>("/integrations/google/sync")
+    return data
   },
 }

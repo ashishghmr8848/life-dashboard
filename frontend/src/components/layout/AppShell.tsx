@@ -8,6 +8,7 @@ import {
   Menu,
   Moon,
   Repeat,
+  Settings as SettingsIcon,
   ShieldCheck,
   Sun,
   Target,
@@ -23,6 +24,7 @@ const NAV_ITEMS = [
   { to: "/subscriptions", label: "Subscriptions", icon: Repeat, end: false },
   { to: "/goals", label: "Goals", icon: Target, end: false },
   { to: "/plans", label: "Plans", icon: ClipboardList, end: false },
+  { to: "/settings", label: "Settings", icon: SettingsIcon, end: false },
 ]
 
 function ThemeToggle() {
