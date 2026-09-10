@@ -4,15 +4,18 @@ import clsx from "clsx"
 import {
   ClipboardList,
   LayoutDashboard,
+  LogOut,
   Menu,
   Moon,
   Repeat,
+  ShieldCheck,
   Sun,
   Target,
   Wallet,
   X,
 } from "lucide-react"
 import { useTheme } from "@/lib/theme"
+import { useAuth } from "@/context/AuthContext"
 
 const NAV_ITEMS = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard, end: true },
@@ -51,6 +54,11 @@ function ThemeToggle() {
 }
 
 function NavContent({ onNavigate }: { onNavigate?: () => void }) {
+  const { user, logout } = useAuth()
+  const navItems = user?.is_admin
+    ? [...NAV_ITEMS, { to: "/admin", label: "Admin", icon: ShieldCheck, end: false }]
+    : NAV_ITEMS
+
   return (
     <>
       <div className="flex items-center gap-2 px-5 py-5">
@@ -60,7 +68,7 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
         <span className="text-sm font-semibold text-[var(--text-primary)]">Life Dashboard</span>
       </div>
       <nav className="flex flex-1 flex-col gap-0.5 px-3">
-        {NAV_ITEMS.map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}
@@ -80,6 +88,29 @@ function NavContent({ onNavigate }: { onNavigate?: () => void }) {
           </NavLink>
         ))}
       </nav>
+
+      {user && (
+        <div className="flex items-center gap-2 border-t border-[var(--border-hairline)] px-5 py-4">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-xs font-semibold text-[var(--text-secondary)]">
+            {(user.full_name || user.email)[0]?.toUpperCase()}
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium text-[var(--text-primary)]">
+              {user.full_name || user.email}
+            </p>
+            {user.full_name && <p className="truncate text-xs text-[var(--text-muted)]">{user.email}</p>}
+          </div>
+          <button
+            onClick={logout}
+            aria-label="Log out"
+            title="Log out"
+            className="shrink-0 rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--surface-sunken)] hover:text-[var(--text-primary)]"
+          >
+            <LogOut className="h-4 w-4" />
+          </button>
+        </div>
+      )}
+
       <div className="flex items-center justify-between px-5 py-4">
         <span className="text-xs text-[var(--text-muted)]">Theme</span>
         <ThemeToggle />

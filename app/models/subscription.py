@@ -2,7 +2,7 @@ import enum
 import uuid
 from datetime import date, datetime
 
-from sqlalchemy import Column, String, Numeric, Date, DateTime, Enum, Boolean
+from sqlalchemy import Column, String, Numeric, Date, DateTime, Enum, Boolean, ForeignKey
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import relationship
 
@@ -19,6 +19,7 @@ class Subscription(Base):
     __tablename__ = "subscriptions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     name = Column(String(100), nullable=False)
     amount = Column(Numeric(12, 2), nullable=False)
     billing_cycle = Column(Enum(BillingCycle), nullable=False, default=BillingCycle.monthly)

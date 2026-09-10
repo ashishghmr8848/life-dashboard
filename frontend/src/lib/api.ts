@@ -1,14 +1,20 @@
 import axios from "axios"
 import type {
+  AdminUserDetail,
+  AdminUserSummary,
+  AuthResponse,
   CategorySummary,
   Goal,
   GoalInput,
+  LoginInput,
   Plan,
   PlanInput,
+  RegisterInput,
   Subscription,
   SubscriptionInput,
   Transaction,
   TransactionInput,
+  User,
 } from "./types"
 
 export const API_BASE_URL =
@@ -17,6 +23,80 @@ export const API_BASE_URL =
 export const api = axios.create({
   baseURL: API_BASE_URL,
 })
+
+// ---- Auth token plumbing ----
+// AuthContext owns the token's lifecycle (state + localStorage); this module just
+// needs a place to read it from for every outgoing request, and a way to tell
+// AuthContext "the server just rejected this token" without importing React here.
+
+let authToken: string | null = null
+let unauthorizedHandler: (() => void) | null = null
+
+export function setAuthToken(token: string | null) {
+  authToken = token
+}
+
+export function onUnauthorized(handler: () => void) {
+  unauthorizedHandler = handler
+}
+
+api.interceptors.request.use((config) => {
+  if (authToken) {
+    config.headers.set("Authorization", `Bearer ${authToken}`)
+  }
+  return config
+})
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (axios.isAxiosError(error) && error.response?.status === 401) {
+      unauthorizedHandler?.()
+    }
+    return Promise.reject(error)
+  },
+)
+
+// ---- Auth ----
+
+export const authApi = {
+  register: async (payload: RegisterInput) => {
+    const { data } = await api.post<AuthResponse>("/auth/register", payload)
+    return data
+  },
+  login: async (payload: LoginInput) => {
+    // The backend's /auth/login is an OAuth2 password-flow endpoint, which per spec
+    // takes form-encoded "username" (we use it as email) and "password" - not JSON.
+    const form = new URLSearchParams()
+    form.set("username", payload.email)
+    form.set("password", payload.password)
+    const { data } = await api.post<AuthResponse>("/auth/login", form, {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    })
+    return data
+  },
+  me: async () => {
+    const { data } = await api.get<User>("/auth/me")
+    return data
+  },
+}
+
+// ---- Admin ----
+
+export const adminApi = {
+  listUsers: async () => {
+    const { data } = await api.get<AdminUserSummary[]>("/admin/users")
+    return data
+  },
+  getUserDetail: async (userId: string) => {
+    const { data } = await api.get<AdminUserDetail>(`/admin/users/${userId}`)
+    return data
+  },
+  updateUser: async (userId: string, payload: { is_active?: boolean; is_admin?: boolean }) => {
+    const { data } = await api.patch<User>(`/admin/users/${userId}`, payload)
+    return data
+  },
+}
 
 // ---- Transactions ----
 

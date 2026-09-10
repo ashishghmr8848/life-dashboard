@@ -77,3 +77,53 @@ export interface CategorySummary {
   category: string
   total: number
 }
+
+export interface User {
+  id: string
+  email: string
+  full_name: string | null
+  is_admin: boolean
+  is_active: boolean
+  created_at: string
+}
+
+export interface AuthResponse {
+  access_token: string
+  token_type: string
+  user: User
+}
+
+export interface RegisterInput {
+  email: string
+  password: string
+  full_name?: string | null
+}
+
+export interface LoginInput {
+  email: string
+  password: string
+}
+
+export interface AdminUserSummary {
+  id: string
+  email: string
+  full_name: string | null
+  is_admin: boolean
+  is_active: boolean
+  created_at: string
+  transaction_count: number
+  total_spend: number
+  total_income: number
+  subscription_count: number
+  active_subscription_monthly_cost: number
+  goal_count: number
+  plan_count: number
+}
+
+export interface AdminUserDetail {
+  user: User
+  transactions: Transaction[]
+  subscriptions: Subscription[]
+  goals: Goal[]
+  plans: Plan[]
+}

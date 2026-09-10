@@ -18,6 +18,7 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
     amount = Column(Numeric(12, 2), nullable=False)
     type = Column(Enum(TransactionType), nullable=False)
     category = Column(String(100), nullable=False, index=True)  # e.g. groceries, remittance, subscription

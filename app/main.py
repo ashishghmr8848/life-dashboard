@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.database import Base, engine
 from app import models  # noqa: F401 - ensures models are registered on Base.metadata
-from app.routers import transactions, subscriptions, goals, plans
+from app.routers import admin, auth, transactions, subscriptions, goals, plans
 
 app = FastAPI(title="Life Dashboard API", version="0.1.0")
 
@@ -16,6 +16,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(auth.router)
+app.include_router(admin.router)
 app.include_router(transactions.router)
 app.include_router(subscriptions.router)
 app.include_router(goals.router)
