@@ -96,7 +96,7 @@ export interface AuthResponse {
 export interface RegisterInput {
   email: string
   password: string
-  full_name?: string | null
+  full_name: string
 }
 
 export interface LoginInput {

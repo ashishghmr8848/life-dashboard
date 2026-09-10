@@ -21,7 +21,7 @@ export default function Register() {
     setError(null)
     setSubmitting(true)
     try {
-      await register({ email, password, full_name: fullName || null })
+      await register({ email, password, full_name: fullName })
       navigate("/", { replace: true })
     } catch (err) {
       setError(getApiErrorMessage(err, "Couldn't create your account. Try a different email."))
@@ -48,7 +48,7 @@ export default function Register() {
               <Input
                 id="full_name"
                 autoComplete="name"
-                placeholder="Optional"
+                required
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
               />

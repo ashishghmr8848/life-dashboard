@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/Button"
 import { CategoryBarChart } from "@/components/charts/CategoryBarChart"
 import { SpendTrendChart, type DailySpend } from "@/components/charts/SpendTrendChart"
 import { TransactionFormModal } from "@/components/transactions/TransactionFormModal"
+import { useAuth } from "@/context/AuthContext"
 import { useTransactions } from "@/hooks/useTransactions"
 import { useSubscriptions } from "@/hooks/useSubscriptions"
 import { useGoals } from "@/hooks/useGoals"
@@ -60,6 +61,10 @@ function PeriodSelector({ value, onChange }: { value: PeriodKey; onChange: (key:
 }
 
 export default function Dashboard() {
+  const { user } = useAuth()
+  const firstName = user?.full_name?.trim().split(/\s+/)[0]
+  const greeting = firstName ? `Welcome back, ${firstName}` : "Dashboard"
+
   const [period, setPeriod] = useState<PeriodKey>("this-month")
   const [quickAdd, setQuickAdd] = useState<TransactionType | null>(null)
   const range = useMemo(() => getPeriodRange(period), [period])
@@ -116,7 +121,7 @@ export default function Dashboard() {
   if (isLoading) {
     return (
       <>
-        <PageHeader title="Dashboard" description="Your money, subscriptions, and goals at a glance." />
+        <PageHeader title={greeting} description="Your money, subscriptions, and goals at a glance." />
         <PageSpinner />
       </>
     )
@@ -125,7 +130,7 @@ export default function Dashboard() {
   return (
     <>
       <PageHeader
-        title="Dashboard"
+        title={greeting}
         description="Your money, subscriptions, and goals at a glance."
         action={
           <div className="flex flex-wrap items-center gap-3">
