@@ -1,0 +1,79 @@
+export type TransactionType = "debit" | "credit"
+export type BillingCycle = "weekly" | "monthly" | "yearly"
+
+export interface Transaction {
+  id: string
+  amount: string // Decimal serialized as string by the API
+  type: TransactionType
+  category: string
+  note: string | null
+  occurred_on: string // ISO date
+  is_subscription_charge: boolean
+  subscription_id: string | null
+  created_at: string
+}
+
+export interface TransactionInput {
+  amount: number
+  type: TransactionType
+  category: string
+  note?: string | null
+  occurred_on: string
+  is_subscription_charge?: boolean
+  subscription_id?: string | null
+}
+
+export interface Subscription {
+  id: string
+  name: string
+  amount: string
+  billing_cycle: BillingCycle
+  next_due_date: string
+  active: boolean
+  calendar_event_id: string | null
+  created_at: string
+}
+
+export interface SubscriptionInput {
+  name: string
+  amount: number
+  billing_cycle: BillingCycle
+  next_due_date: string
+  active?: boolean
+}
+
+export interface Goal {
+  id: string
+  name: string
+  target_amount: string
+  current_amount: string
+  target_date: string | null
+  created_at: string
+}
+
+export interface GoalInput {
+  name: string
+  target_amount: number
+  current_amount?: number
+  target_date?: string | null
+}
+
+export interface Plan {
+  id: string
+  title: string
+  description: string | null
+  linked_date: string | null
+  calendar_event_id: string | null
+  created_at: string
+}
+
+export interface PlanInput {
+  title: string
+  description?: string | null
+  linked_date?: string | null
+}
+
+export interface CategorySummary {
+  category: string
+  total: number
+}
