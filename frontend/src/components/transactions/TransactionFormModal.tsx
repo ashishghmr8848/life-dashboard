@@ -4,16 +4,19 @@ import { Button } from "@/components/ui/Button"
 import { FieldLabel, FormRow, Input, Select } from "@/components/ui/Field"
 import { useTransactionMutations } from "@/hooks/useTransactions"
 import { useSubscriptions } from "@/hooks/useSubscriptions"
+import { todayISO } from "@/lib/format"
 import type { Transaction, TransactionInput, TransactionType } from "@/lib/types"
 
-const emptyForm: TransactionInput = {
-  amount: 0,
-  type: "debit",
-  category: "",
-  note: "",
-  occurred_on: new Date().toISOString().slice(0, 10),
-  is_subscription_charge: false,
-  subscription_id: null,
+function buildEmptyForm(defaultType: TransactionType): TransactionInput {
+  return {
+    amount: 0,
+    type: defaultType,
+    category: "",
+    note: "",
+    occurred_on: todayISO(),
+    is_subscription_charge: false,
+    subscription_id: null,
+  }
 }
 
 function toFormState(t: Transaction): TransactionInput {
@@ -32,21 +35,29 @@ interface TransactionFormModalProps {
   open: boolean
   onClose: () => void
   editing?: Transaction | null
+  /** Type a brand-new transaction starts as (ignored when editing). Defaults to expense. */
+  defaultType?: TransactionType
   onSaved?: () => void
 }
 
-export function TransactionFormModal({ open, onClose, editing = null, onSaved }: TransactionFormModalProps) {
+export function TransactionFormModal({
+  open,
+  onClose,
+  editing = null,
+  defaultType = "debit",
+  onSaved,
+}: TransactionFormModalProps) {
   const subs = useSubscriptions()
   const { create, update } = useTransactionMutations()
-  const [form, setForm] = useState<TransactionInput>(editing ? toFormState(editing) : emptyForm)
+  const [form, setForm] = useState<TransactionInput>(editing ? toFormState(editing) : buildEmptyForm(defaultType))
 
-  // Reset the form on the closed->open transition (covers both "edit a different
-  // record" and "reopen for a fresh add") without an effect - see
-  // https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
+  // Reset the form on the closed->open transition (covers "edit a different record",
+  // "reopen for a fresh add", and "reopen with a different default type") without an
+  // effect - see https://react.dev/learn/you-might-not-need-an-effect#adjusting-some-state-when-a-prop-changes
   const [wasOpen, setWasOpen] = useState(open)
   if (open !== wasOpen) {
     setWasOpen(open)
-    if (open) setForm(editing ? toFormState(editing) : emptyForm)
+    if (open) setForm(editing ? toFormState(editing) : buildEmptyForm(defaultType))
   }
 
   async function handleSubmit() {
@@ -66,12 +77,13 @@ export function TransactionFormModal({ open, onClose, editing = null, onSaved }:
   }
 
   const saving = create.isPending || update.isPending
+  const title = editing ? "Edit transaction" : form.type === "credit" ? "Add income" : "Add expense"
 
   return (
     <Modal
       open={open}
       onClose={onClose}
-      title={editing ? "Edit transaction" : "Add transaction"}
+      title={title}
       footer={
         <>
           <Button variant="secondary" onClick={onClose}>
@@ -84,6 +96,17 @@ export function TransactionFormModal({ open, onClose, editing = null, onSaved }:
       }
     >
       <FormRow>
+        <FieldLabel htmlFor="type">Type</FieldLabel>
+        <Select
+          id="type"
+          value={form.type}
+          onChange={(e) => setForm({ ...form, type: e.target.value as TransactionType })}
+        >
+          <option value="debit">Expense — money out</option>
+          <option value="credit">Income — money in</option>
+        </Select>
+      </FormRow>
+      <FormRow>
         <FieldLabel htmlFor="amount">Amount</FieldLabel>
         <Input
           id="amount"
@@ -95,21 +118,10 @@ export function TransactionFormModal({ open, onClose, editing = null, onSaved }:
         />
       </FormRow>
       <FormRow>
-        <FieldLabel htmlFor="type">Type</FieldLabel>
-        <Select
-          id="type"
-          value={form.type}
-          onChange={(e) => setForm({ ...form, type: e.target.value as TransactionType })}
-        >
-          <option value="debit">Debit (money out)</option>
-          <option value="credit">Credit (money in)</option>
-        </Select>
-      </FormRow>
-      <FormRow>
         <FieldLabel htmlFor="category">Category</FieldLabel>
         <Input
           id="category"
-          placeholder="groceries, remittance, subscription…"
+          placeholder={form.type === "credit" ? "paycheck, gift, refund…" : "groceries, remittance, subscription…"}
           value={form.category}
           onChange={(e) => setForm({ ...form, category: e.target.value })}
         />
@@ -132,7 +144,7 @@ export function TransactionFormModal({ open, onClose, editing = null, onSaved }:
           onChange={(e) => setForm({ ...form, note: e.target.value })}
         />
       </FormRow>
-      {!!subs.data?.length && (
+      {form.type === "debit" && !!subs.data?.length && (
         <FormRow className="mb-0">
           <FieldLabel htmlFor="subscription">Linked subscription</FieldLabel>
           <Select

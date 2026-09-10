@@ -1,7 +1,19 @@
+import { format } from "date-fns"
+
 const currencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
   currency: "USD",
 })
+
+/**
+ * Today's date as YYYY-MM-DD in the *local* timezone. `new Date().toISOString()`
+ * converts to UTC first, so near midnight it can silently roll to the wrong day
+ * (e.g. 11pm Central is already 4am UTC the next day) - always use this instead
+ * for date-only fields.
+ */
+export function todayISO(): string {
+  return format(new Date(), "yyyy-MM-dd")
+}
 
 const compactCurrencyFormatter = new Intl.NumberFormat("en-US", {
   style: "currency",
@@ -40,6 +52,10 @@ export function relativeDueLabel(value: string | null | undefined): string {
   if (days === 0) return "Due today"
   if (days === 1) return "Due tomorrow"
   return `Due in ${days}d`
+}
+
+export function transactionTypeLabel(type: "debit" | "credit"): string {
+  return type === "credit" ? "Income" : "Expense"
 }
 
 export function titleCase(value: string): string {

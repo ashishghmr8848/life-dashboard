@@ -3,7 +3,7 @@ from datetime import date, datetime
 from decimal import Decimal
 from typing import Optional
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from app.models.transaction import TransactionType
 
@@ -13,7 +13,10 @@ class TransactionBase(BaseModel):
     type: TransactionType
     category: str
     note: Optional[str] = None
-    occurred_on: date = date.today()
+    # default_factory, not `= date.today()` - a bare default is evaluated once at
+    # class-definition time (server startup), not per-request, so it would freeze
+    # to whatever day the server happened to start on.
+    occurred_on: date = Field(default_factory=date.today)
     is_subscription_charge: bool = False
     subscription_id: Optional[uuid.UUID] = None
 

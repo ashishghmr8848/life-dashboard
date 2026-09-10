@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react"
 import { Link } from "react-router-dom"
 import { eachDayOfInterval, format, parseISO } from "date-fns"
-import { ArrowDownRight, ArrowUpRight, PiggyBank, Plus, Repeat, Scale, Target, Wallet } from "lucide-react"
+import { ArrowDownRight, ArrowUpRight, CheckCircle2, PiggyBank, Plus, Repeat, Scale, Target, Wallet } from "lucide-react"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { Card, CardHeader } from "@/components/ui/Card"
 import { StatTile } from "@/components/ui/StatTile"
@@ -16,9 +16,10 @@ import { TransactionFormModal } from "@/components/transactions/TransactionFormM
 import { useTransactions } from "@/hooks/useTransactions"
 import { useSubscriptions } from "@/hooks/useSubscriptions"
 import { useGoals } from "@/hooks/useGoals"
+import { useLogSubscriptionCharge } from "@/hooks/useLogSubscriptionCharge"
 import { computeDelta, daysUntil, formatCurrency, relativeDueLabel, titleCase } from "@/lib/format"
 import { getPeriodRange, PERIOD_OPTIONS, type PeriodKey } from "@/lib/period"
-import type { CategorySummary, Transaction } from "@/lib/types"
+import type { CategorySummary, Transaction, TransactionType } from "@/lib/types"
 
 const MONTHLY_MULTIPLIER: Record<string, number> = {
   weekly: 52 / 12,
@@ -60,13 +61,14 @@ function PeriodSelector({ value, onChange }: { value: PeriodKey; onChange: (key:
 
 export default function Dashboard() {
   const [period, setPeriod] = useState<PeriodKey>("this-month")
-  const [quickAddOpen, setQuickAddOpen] = useState(false)
+  const [quickAdd, setQuickAdd] = useState<TransactionType | null>(null)
   const range = useMemo(() => getPeriodRange(period), [period])
 
   const currentTx = useTransactions({ start_date: range.start, end_date: range.end })
   const previousTx = useTransactions({ start_date: range.prevStart, end_date: range.prevEnd })
   const recentTx = useTransactions()
   const subs = useSubscriptions(true)
+  const { logCharge, loggingId } = useLogSubscriptionCharge()
   const goals = useGoals()
 
   const current = useMemo(() => summarizePeriod(currentTx.data ?? []), [currentTx.data])
@@ -126,11 +128,20 @@ export default function Dashboard() {
         title="Dashboard"
         description="Your money, subscriptions, and goals at a glance."
         action={
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <PeriodSelector value={period} onChange={setPeriod} />
-            <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setQuickAddOpen(true)}>
-              Add transaction
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="secondary"
+                icon={<ArrowUpRight className="h-4 w-4" />}
+                onClick={() => setQuickAdd("credit")}
+              >
+                Add income
+              </Button>
+              <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => setQuickAdd("debit")}>
+                Add expense
+              </Button>
+            </div>
           </div>
         }
       />
@@ -211,18 +222,29 @@ export default function Dashboard() {
                   const days = daysUntil(s.next_due_date)
                   const tone = days !== null && days < 0 ? "critical" : days !== null && days <= 3 ? "warning" : "neutral"
                   return (
-                    <li key={s.id} className="flex items-center justify-between py-2.5">
+                    <li key={s.id} className="flex items-center justify-between gap-2 py-2.5">
                       <div>
                         <p className="text-sm font-medium text-[var(--text-primary)]">{s.name}</p>
                         <p className="text-xs text-[var(--text-muted)]">{titleCase(s.billing_cycle)}</p>
                       </div>
-                      <div className="text-right">
-                        <p className="text-sm font-medium tabular-nums text-[var(--text-primary)]">
-                          {formatCurrency(s.amount)}
-                        </p>
-                        <Badge tone={tone} className="mt-1 normal-case">
-                          {relativeDueLabel(s.next_due_date)}
-                        </Badge>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <p className="text-sm font-medium tabular-nums text-[var(--text-primary)]">
+                            {formatCurrency(s.amount)}
+                          </p>
+                          <Badge tone={tone} className="mt-1 normal-case">
+                            {relativeDueLabel(s.next_due_date)}
+                          </Badge>
+                        </div>
+                        <button
+                          aria-label={`Log ${s.name} charge`}
+                          title="Log charge — counts toward spend"
+                          disabled={loggingId === s.id}
+                          onClick={() => logCharge(s)}
+                          className="rounded-lg p-1.5 text-[var(--text-muted)] hover:bg-[var(--status-good)]/10 hover:text-[var(--status-good-text)] disabled:opacity-50"
+                        >
+                          <CheckCircle2 className="h-4 w-4" />
+                        </button>
                       </div>
                     </li>
                   )
@@ -307,7 +329,11 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <TransactionFormModal open={quickAddOpen} onClose={() => setQuickAddOpen(false)} />
+      <TransactionFormModal
+        open={quickAdd !== null}
+        onClose={() => setQuickAdd(null)}
+        defaultType={quickAdd ?? "debit"}
+      />
     </>
   )
 }

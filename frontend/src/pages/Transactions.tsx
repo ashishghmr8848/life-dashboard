@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react"
-import { Plus, Search, Trash2, Wallet } from "lucide-react"
+import { ArrowUpRight, Plus, Search, Trash2, Wallet } from "lucide-react"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { Card } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
@@ -10,7 +10,7 @@ import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { FieldLabel, Input, Select } from "@/components/ui/Field"
 import { TransactionFormModal } from "@/components/transactions/TransactionFormModal"
 import { useTransactions, useTransactionMutations } from "@/hooks/useTransactions"
-import { formatCurrency, formatDate, titleCase } from "@/lib/format"
+import { formatCurrency, formatDate, titleCase, transactionTypeLabel } from "@/lib/format"
 import type { Transaction, TransactionType } from "@/lib/types"
 
 export default function Transactions() {
@@ -33,12 +33,14 @@ export default function Transactions() {
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Transaction | null>(null)
+  const [createType, setCreateType] = useState<TransactionType>("debit")
   const [deleteTarget, setDeleteTarget] = useState<Transaction | null>(null)
 
   const rows = (data ?? []).filter((t) => typeFilter === "all" || t.type === typeFilter)
 
-  function openCreate() {
+  function openCreate(type: TransactionType) {
     setEditing(null)
+    setCreateType(type)
     setModalOpen(true)
   }
 
@@ -57,11 +59,20 @@ export default function Transactions() {
     <>
       <PageHeader
         title="Transactions"
-        description="Every debit and credit, tagged by category."
+        description="Every expense and income, tagged by category."
         action={
-          <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
-            Add transaction
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="secondary"
+              icon={<ArrowUpRight className="h-4 w-4" />}
+              onClick={() => openCreate("credit")}
+            >
+              Add income
+            </Button>
+            <Button variant="primary" icon={<Plus className="h-4 w-4" />} onClick={() => openCreate("debit")}>
+              Add expense
+            </Button>
+          </div>
         }
       />
 
@@ -83,8 +94,8 @@ export default function Transactions() {
             <FieldLabel>Type</FieldLabel>
             <Select value={typeFilter} onChange={(e) => setTypeFilter(e.target.value as TransactionType | "all")}>
               <option value="all">All</option>
-              <option value="debit">Debit</option>
-              <option value="credit">Credit</option>
+              <option value="debit">Expense</option>
+              <option value="credit">Income</option>
             </Select>
           </div>
           <div className="w-40">
@@ -105,11 +116,16 @@ export default function Transactions() {
           <EmptyState
             icon={<Wallet />}
             title="No transactions match"
-            description="Try widening your filters, or add a new transaction."
+            description="Try widening your filters, or add a new expense or income."
             action={
-              <Button variant="secondary" icon={<Plus className="h-4 w-4" />} onClick={openCreate}>
-                Add transaction
-              </Button>
+              <div className="flex items-center gap-2">
+                <Button variant="secondary" icon={<ArrowUpRight className="h-4 w-4" />} onClick={() => openCreate("credit")}>
+                  Add income
+                </Button>
+                <Button variant="secondary" icon={<Plus className="h-4 w-4" />} onClick={() => openCreate("debit")}>
+                  Add expense
+                </Button>
+              </div>
             }
           />
         ) : (
@@ -142,7 +158,7 @@ export default function Transactions() {
                       {t.note || "—"}
                     </td>
                     <td className="px-5 py-3">
-                      <Badge tone={t.type === "debit" ? "critical" : "good"}>{t.type}</Badge>
+                      <Badge tone={t.type === "debit" ? "critical" : "good"}>{transactionTypeLabel(t.type)}</Badge>
                     </td>
                     <td
                       className={
@@ -173,7 +189,12 @@ export default function Transactions() {
         )}
       </Card>
 
-      <TransactionFormModal open={modalOpen} onClose={() => setModalOpen(false)} editing={editing} />
+      <TransactionFormModal
+        open={modalOpen}
+        onClose={() => setModalOpen(false)}
+        editing={editing}
+        defaultType={createType}
+      />
 
       <ConfirmDialog
         open={!!deleteTarget}

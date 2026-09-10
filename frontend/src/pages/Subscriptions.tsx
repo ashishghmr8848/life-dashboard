@@ -1,5 +1,5 @@
 import { useState } from "react"
-import { Plus, Repeat, Trash2 } from "lucide-react"
+import { CheckCircle2, Plus, Repeat, Trash2 } from "lucide-react"
 import { PageHeader } from "@/components/ui/PageHeader"
 import { Card } from "@/components/ui/Card"
 import { Button } from "@/components/ui/Button"
@@ -10,14 +10,15 @@ import { Modal } from "@/components/ui/Modal"
 import { ConfirmDialog } from "@/components/ui/ConfirmDialog"
 import { FieldLabel, FormRow, Input, Select } from "@/components/ui/Field"
 import { useSubscriptionMutations, useSubscriptions } from "@/hooks/useSubscriptions"
-import { daysUntil, formatCurrency, relativeDueLabel, titleCase } from "@/lib/format"
+import { useLogSubscriptionCharge } from "@/hooks/useLogSubscriptionCharge"
+import { daysUntil, formatCurrency, relativeDueLabel, titleCase, todayISO } from "@/lib/format"
 import type { BillingCycle, Subscription, SubscriptionInput } from "@/lib/types"
 
 const emptyForm: SubscriptionInput = {
   name: "",
   amount: 0,
   billing_cycle: "monthly",
-  next_due_date: new Date().toISOString().slice(0, 10),
+  next_due_date: todayISO(),
   active: true,
 }
 
@@ -25,6 +26,7 @@ export default function Subscriptions() {
   const [activeOnly, setActiveOnly] = useState(false)
   const { data, isLoading } = useSubscriptions(activeOnly)
   const { create, update, remove } = useSubscriptionMutations()
+  const { logCharge, loggingId } = useLogSubscriptionCharge()
 
   const [modalOpen, setModalOpen] = useState(false)
   const [editing, setEditing] = useState<Subscription | null>(null)
@@ -127,7 +129,7 @@ export default function Subscriptions() {
                   <Badge tone={dueTone} className="normal-case">
                     {relativeDueLabel(s.next_due_date)}
                   </Badge>
-                  <div className="flex gap-1">
+                  <div className="flex items-center gap-1">
                     <Button size="sm" variant="ghost" onClick={() => openEdit(s)}>
                       Edit
                     </Button>
@@ -140,6 +142,16 @@ export default function Subscriptions() {
                     </button>
                   </div>
                 </div>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  className="mt-2 w-full"
+                  icon={<CheckCircle2 className="h-4 w-4" />}
+                  disabled={loggingId === s.id}
+                  onClick={() => logCharge(s)}
+                >
+                  {loggingId === s.id ? "Logging…" : `Log charge · counts toward spend`}
+                </Button>
               </Card>
             )
           })}

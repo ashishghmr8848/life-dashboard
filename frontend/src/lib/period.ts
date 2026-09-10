@@ -1,4 +1,5 @@
-import { differenceInCalendarDays, format, startOfMonth, subDays } from "date-fns"
+import { addMonths, addWeeks, addYears, differenceInCalendarDays, format, parseISO, startOfMonth, subDays } from "date-fns"
+import type { BillingCycle } from "./types"
 
 export type PeriodKey = "this-month" | "last-30" | "last-90"
 
@@ -53,3 +54,10 @@ export const PERIOD_OPTIONS: { key: PeriodKey; label: string }[] = [
   { key: "last-30", label: "Last 30 days" },
   { key: "last-90", label: "Last 90 days" },
 ]
+
+/** The next billing date after `dateISO`, stepped by one billing cycle. */
+export function advanceByBillingCycle(dateISO: string, cycle: BillingCycle): string {
+  const d = parseISO(dateISO)
+  const next = cycle === "weekly" ? addWeeks(d, 1) : cycle === "yearly" ? addYears(d, 1) : addMonths(d, 1)
+  return iso(next)
+}
