@@ -29,16 +29,19 @@ resource "render_web_service" "backend" {
 }
 
 resource "render_web_service" "frontend" {
-  name            = "${var.project_name}-frontend"
-  plan            = var.plan
-  region          = var.region
-  root_directory  = "frontend"
+  name           = "${var.project_name}-frontend"
+  plan           = var.plan
+  region         = var.region
+  root_directory = "frontend"
 
   runtime_source = {
     docker = {
       repo_url        = var.github_repo_url
       branch          = var.branch
-      dockerfile_path = "./frontend/Dockerfile"
+      # Relative to root_directory above, not the repo root - "./frontend/Dockerfile"
+      # here would double up to frontend/frontend/Dockerfile (confirmed by a
+      # real failed deploy: "no such file or directory").
+      dockerfile_path = "./Dockerfile"
       auto_deploy     = true
     }
   }
