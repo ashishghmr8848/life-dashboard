@@ -15,7 +15,13 @@ server {
     location ~ ^/(auth|admin|transactions|subscriptions|goals|plans|health)(/|$) {
         proxy_pass ${BACKEND_ORIGIN};
         proxy_ssl_server_name on;
-        proxy_set_header Host $host;
+        # Deliberately NOT forwarding the original Host header - Render
+        # routes by Host, so passing the frontend's own hostname through to
+        # a proxy_pass targeting a different Render service makes its edge
+        # think the request belongs back on the frontend (HTTP 508 "Loop
+        # Detected", confirmed live). Omitting this lets nginx default to
+        # $proxy_host - i.e. whatever host is in ${BACKEND_ORIGIN} - which
+        # is what both Render and the docker-compose network hostname need.
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
