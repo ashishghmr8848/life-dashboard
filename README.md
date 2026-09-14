@@ -212,6 +212,13 @@ service down after inactivity and cold-start on the next request, and
 Render's free Postgres expires after a fixed period - fine for a demo,
 upgrade `plan`/`db_plan` to `starter` for anything longer-lived.
 
+**Live, from the first real run:**
+- `render_web_service` updates against an existing free-plan service can hit
+  a provider bug - see the comment at the top of `terraform/main.tf`.
+- `auto_deploy = true` only fires on Render's own git polling; without a
+  connected GitHub App (repo access), a push alone won't trigger a redeploy.
+  Trigger one directly: `curl -X POST -H "Authorization: Bearer $RENDER_API_KEY" https://api.render.com/v1/services/<id>/deploys`.
+
 To run Terraform by hand instead of through Jenkins:
 ```bash
 cd terraform

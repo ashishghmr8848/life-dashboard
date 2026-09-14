@@ -1,3 +1,16 @@
+# Known render-oss/render provider quirk (hit live on the first real apply,
+# provider v1.9.1): `terraform apply` against an EXISTING free-plan service
+# whose runtime_source changes can fail with "Error updating service:
+# ... maintenance mode can only be configured for non-free tier services" -
+# the provider appears to always include a maintenanceMode field on service
+# PATCH requests, which Render's API rejects for free-tier services even
+# when unset/false. Terraform correctly computes the diff (confirmed: `plan`
+# showed only the intended attribute changing) but the apply itself errors.
+# Creating a NEW service, and `terraform destroy`, are unaffected - only
+# updating an existing free-tier service's config hits this. If you hit it:
+# either upgrade `plan` to "starter" for that service, or make the same
+# change directly via the Render API/dashboard and reconcile state
+# separately (e.g. `terraform apply -refresh-only`).
 resource "render_postgres" "db" {
   name    = "${var.project_name}-db"
   plan    = var.db_plan
