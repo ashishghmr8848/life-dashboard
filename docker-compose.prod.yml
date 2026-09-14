@@ -1,0 +1,47 @@
+# Deploy-time stack: pulls prebuilt images from Docker Hub instead of
+# building from source. This is what runs on the EC2 host - Jenkins copies
+# this file over and runs `docker compose -f docker-compose.prod.yml up -d`
+# after pushing IMAGE_TAG to Docker Hub (see Jenkinsfile + scripts/deploy.sh).
+#
+# Required env vars (Jenkins writes these into a .env alongside this file on
+# the host before running it): DOCKERHUB_NAMESPACE, IMAGE_TAG,
+# JWT_SECRET_KEY, POSTGRES_PASSWORD.
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: life_dashboard
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    image: ${DOCKERHUB_NAMESPACE}/life-dashboard-backend:${IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD}@db:5432/life_dashboard
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY}
+      JWT_EXPIRE_MINUTES: 10080
+    ports:
+      - "8000:8000"
+
+  frontend:
+    image: ${DOCKERHUB_NAMESPACE}/life-dashboard-frontend:${IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    ports:
+      - "80:80"
+
+volumes:
+  db_data:

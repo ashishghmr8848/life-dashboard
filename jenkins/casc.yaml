@@ -1,0 +1,53 @@
+# Jenkins Configuration as Code: applied on container start (see
+# CASC_JENKINS_CONFIG in the Dockerfile). Values come from env vars set in
+# docker-compose.jenkins.yml / .env.jenkins (gitignored) - nothing secret is
+# baked into this file itself.
+#
+# This wires up ONLY what can be provisioned without a human pasting a
+# secret in: the admin login and a GitHub credential for cloning this repo.
+# Docker Hub, AWS, the EC2 SSH key, and the app secrets (JWT/DB password)
+# are deliberately NOT set here - add those yourself under Manage Jenkins >
+# Credentials once you're ready to run the Push/Terraform/Deploy stages for
+# real (see README's CI/CD section for the exact credential IDs expected).
+jenkins:
+  systemMessage: "Life Dashboard CI"
+  numExecutors: 2
+  securityRealm:
+    local:
+      allowsSignup: false
+      users:
+        - id: "${JENKINS_ADMIN_USER}"
+          password: "${JENKINS_ADMIN_PASSWORD}"
+  authorizationStrategy:
+    loggedInUsersCanDoAnything:
+      allowAnonymousRead: false
+
+credentials:
+  system:
+    domainCredentials:
+      - credentials:
+          - usernamePassword:
+              scope: GLOBAL
+              id: "github-creds"
+              username: "${GITHUB_USERNAME}"
+              password: "${GITHUB_TOKEN}"
+              description: "GitHub - clone ashishghmr8848/life-dashboard"
+
+jobs:
+  - script: >
+      pipelineJob('life-dashboard') {
+        definition {
+          cpsScm {
+            scm {
+              git {
+                remote {
+                  url('https://github.com/ashishghmr8848/life-dashboard.git')
+                  credentials('github-creds')
+                }
+                branches('*/main')
+              }
+            }
+            scriptPath('Jenkinsfile')
+          }
+        }
+      }

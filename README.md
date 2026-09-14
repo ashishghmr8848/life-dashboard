@@ -51,7 +51,19 @@ life_dashboard/
 │   │   ├── lib/                 # api client, types, formatting, theme
 │   │   └── pages/               # Login, Register, Dashboard, Transactions,
 │   │                             Subscriptions, Goals, Plans, admin/
+│   ├── Dockerfile              # build: vite build → nginx:alpine serving dist/
+│   ├── nginx.conf              # SPA fallback + reverse-proxy to the backend
 │   └── .env.example
+├── jenkins/                    # local Jenkins image (Docker CLI, Terraform, JCasC)
+├── terraform/                  # AWS EC2 provisioning (main.tf, variables.tf, ...)
+├── scripts/
+│   ├── deploy.sh                # scp compose file + pull/up on the EC2 host
+│   └── verify.sh                # poll the live app until it responds
+├── Dockerfile                  # backend image
+├── docker-compose.yml          # local dev stack: db + backend + frontend
+├── docker-compose.prod.yml     # deploy-time stack: pulls images from Docker Hub
+├── docker-compose.jenkins.yml  # local Jenkins
+├── Jenkinsfile
 ├── requirements.txt
 └── .env.example
 ```
@@ -124,6 +136,80 @@ alembic init alembic
 
 Build for production with `npm run build` (output in `frontend/dist`); type-check
 with `npx tsc -b` and lint with `npx oxlint`.
+
+## Docker
+
+Run the whole stack (Postgres + backend + frontend) locally with:
+```bash
+docker compose up --build
+```
+Frontend at http://localhost, backend at http://localhost:8000. The frontend
+image's nginx reverse-proxies `/auth`, `/transactions`, `/subscriptions`,
+`/goals`, `/plans`, `/admin`, and `/health` to the backend container (see
+`frontend/nginx.conf`), so the built frontend calls same-origin relative
+paths rather than hardcoding a backend host.
+
+> If port 8000 or 80 is already taken by something else on your machine, override
+> the host side: `BACKEND_PORT=8010 FRONTEND_PORT=8080 docker compose up --build`.
+
+## CI/CD: Claude Code → Docker → GitHub → Jenkins → Terraform → AWS EC2 → Docker Hub → Deploy → Verify
+
+```
+Docker images (Dockerfile, frontend/Dockerfile)
+        ↓ git push
+GitHub (this repo)
+        ↓ Jenkins polls/clones on build
+Jenkins pipeline (Jenkinsfile)
+  ├─ Test        - backend import smoke test + frontend lint/typecheck
+  ├─ Build images - docker build backend + frontend
+  ├─ Push        - docker push to Docker Hub (ashishghmr8848/life-dashboard-*)
+  │                                    [stages below run only when the job is
+  │                                     started with PROVISION_AWS=true]
+  ├─ Terraform    - terraform apply (terraform/) provisions one EC2 instance
+  ├─ Deploy       - scripts/deploy.sh scp's docker-compose.prod.yml to the
+  │                 instance and runs `docker compose up -d`, pulling the
+  │                 images Jenkins just pushed
+  └─ Verify       - scripts/verify.sh polls the live URL until /health and
+                    the frontend both respond, failing the build if they don't
+```
+
+**Run Jenkins locally** (self-contained, nothing external required beyond a
+GitHub token for cloning this repo):
+```bash
+cp .env.jenkins.example .env.jenkins   # fill in JENKINS_ADMIN_PASSWORD + GITHUB_TOKEN
+docker compose -f docker-compose.jenkins.yml up -d --build
+```
+Open http://localhost:8080, log in with `JENKINS_ADMIN_USER` /
+`JENKINS_ADMIN_PASSWORD`. Jenkins Configuration as Code (`jenkins/casc.yaml`)
+auto-creates the `life-dashboard` pipeline job pointed at this repo's
+`Jenkinsfile`, and a `github-creds` credential for cloning it - that's all it
+sets up for you. To actually push images or deploy, add these credentials
+yourself under **Manage Jenkins → Credentials** first (deliberately not
+automated - they're real secrets):
+
+| Credential ID | Type | Used for |
+|---|---|---|
+| `dockerhub-creds` | Username/password | A Docker Hub access token, for `docker push` |
+| `aws-creds` | AWS credentials | `terraform apply` / `destroy` |
+| `ec2-ssh-key` | SSH username with private key | `scripts/deploy.sh`'s scp/ssh to the instance |
+| `life-dashboard-jwt-secret` | Secret text | Real `JWT_SECRET_KEY` for the deployed backend |
+| `life-dashboard-db-password` | Secret text | Postgres password for the deployed stack |
+
+**Provisioning AWS is opt-in per build** — the job's `PROVISION_AWS` parameter
+defaults to `false`, so a normal build only builds/tests/pushes images. Check
+it to also run Terraform, deploy, and verify against a real (billable)
+`t3.micro` EC2 instance; check `DESTROY_AFTER_VERIFY` alongside it to have
+the job tear the instance back down once verification passes, for a one-shot
+demo run that doesn't keep billing.
+
+To run Terraform by hand instead of through Jenkins:
+```bash
+cd terraform
+cp terraform.tfvars.example terraform.tfvars   # fill in your values
+ssh-keygen -t ed25519 -f ~/.ssh/life_dashboard_ec2 -N ""
+terraform init
+terraform apply
+```
 
 ## Accounts & admin
 

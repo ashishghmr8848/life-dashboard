@@ -1,0 +1,24 @@
+# Local Jenkins for this project's pipeline. Bring up with:
+#   docker compose -f docker-compose.jenkins.yml up -d --build
+# Then open http://localhost:8080 and log in with JENKINS_ADMIN_USER /
+# JENKINS_ADMIN_PASSWORD from .env.jenkins (gitignored - see .env.jenkins.example).
+services:
+  jenkins:
+    build: ./jenkins
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      JENKINS_ADMIN_USER: ${JENKINS_ADMIN_USER:-admin}
+      JENKINS_ADMIN_PASSWORD: ${JENKINS_ADMIN_PASSWORD:?set in .env.jenkins}
+      GITHUB_USERNAME: ${GITHUB_USERNAME:?set in .env.jenkins}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:?set in .env.jenkins}
+    volumes:
+      - jenkins_home:/var/jenkins_home
+      # Docker-outside-of-Docker: the pipeline's `docker build`/`docker push`
+      # steps talk to the host's Docker daemon through this socket rather
+      # than running a nested daemon inside the container.
+      - /var/run/docker.sock:/var/run/docker.sock
+
+volumes:
+  jenkins_home:

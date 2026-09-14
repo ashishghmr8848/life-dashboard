@@ -1,0 +1,12 @@
+venv/
+__pycache__/
+*.pyc
+*.db
+.env
+.git/
+.github/
+frontend/
+README.md
+terraform/
+scripts/
+Jenkinsfile
