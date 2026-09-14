@@ -1,35 +1,41 @@
-variable "aws_region" {
-  description = "AWS region to provision into."
-  type        = string
-  default     = "us-east-1"
-}
-
-variable "instance_type" {
-  description = "EC2 instance type. t3.micro is free-tier eligible for 12 months on a new AWS account."
-  type        = string
-  default     = "t3.micro"
-}
-
 variable "project_name" {
-  description = "Prefix used to tag/name every resource this config creates."
+  description = "Prefix used to name every Render resource this config creates."
   type        = string
   default     = "life-dashboard"
 }
 
-variable "ssh_public_key_path" {
-  description = "Path to a local SSH public key file, imported as the EC2 key pair. Generate one with: ssh-keygen -t ed25519 -f ~/.ssh/life_dashboard_ec2"
+variable "region" {
+  description = "Render region."
   type        = string
-  default     = "~/.ssh/life_dashboard_ec2.pub"
+  default     = "oregon"
 }
 
-variable "ssh_ingress_cidr" {
-  description = "CIDR allowed to reach the instance on port 22. Lock this to your own IP (e.g. \"1.2.3.4/32\") - do not leave it at 0.0.0.0/0 beyond a first test."
+variable "plan" {
+  description = "Render plan for both web services. \"free\" spins the service down after inactivity and cold-starts on the next request - fine for a demo; upgrade to \"starter\" for an always-on service."
   type        = string
-  default     = "0.0.0.0/0"
+  default     = "free"
 }
 
-variable "root_volume_size_gb" {
-  description = "Root EBS volume size in GB."
-  type        = number
-  default     = 20
+variable "db_plan" {
+  description = "Render Postgres plan."
+  type        = string
+  default     = "free"
+}
+
+variable "github_repo_url" {
+  description = "HTTPS URL of the GitHub repo Render builds both services from."
+  type        = string
+  default     = "https://github.com/ashishghmr8848/life-dashboard"
+}
+
+variable "branch" {
+  description = "Branch Render auto-deploys from."
+  type        = string
+  default     = "main"
+}
+
+variable "jwt_secret_key" {
+  description = "Real JWT signing secret for the deployed backend - never the .env.example placeholder."
+  type        = string
+  sensitive   = true
 }

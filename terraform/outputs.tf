@@ -1,16 +1,12 @@
-output "instance_public_ip" {
-  description = "Public IP of the app instance - Jenkins deploys to this and the verify stage curls it."
-  value       = aws_instance.app.public_ip
+output "backend_url" {
+  value = render_web_service.backend.url
 }
 
-output "instance_id" {
-  value = aws_instance.app.id
+output "frontend_url" {
+  value = render_web_service.frontend.url
 }
 
-output "ssh_command" {
-  value = "ssh -i <path-to-private-key> ubuntu@${aws_instance.app.public_ip}"
-}
-
-output "app_url" {
-  value = "http://${aws_instance.app.public_ip}"
+output "db_connection_string" {
+  value     = render_postgres.db.connection_info.internal_connection_string
+  sensitive = true
 }

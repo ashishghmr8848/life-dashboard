@@ -1,25 +1,31 @@
 // Life Dashboard: Claude Code -> Docker -> GitHub -> Jenkins -> Terraform ->
-// AWS EC2 -> Docker Hub -> Deploy -> Live verification.
+// Render -> Docker Hub -> Deploy -> Live verification.
+//
+// Render builds and deploys straight from this GitHub repo's Dockerfiles
+// (see terraform/main.tf's runtime_source.docker blocks with
+// auto_deploy = true) - there's no separate SSH-into-a-VM deploy step.
+// terraform apply's job is to create/update the render_web_service and
+// render_postgres resources; Render's own auto_deploy is what actually
+// builds and deploys on every push to the branch.
 //
 // Requires these Jenkins credentials (Manage Jenkins > Credentials):
-//   dockerhub-creds     - Username/password, a Docker Hub access token
-//   aws-creds           - AWS access key/secret with EC2 permissions
-//   ec2-ssh-key         - SSH private key matching terraform's
-//                         ssh_public_key_path, used to deploy over SSH
-//   life-dashboard-jwt-secret   - Secret text, a real JWT signing secret
-//   life-dashboard-db-password  - Secret text, the Postgres password
+//   dockerhub-creds        - Username/password, a Docker Hub access token
+//   render-api-key         - Secret text, from Render's Account Settings
+//   render-owner-id        - Secret text, usr-... or tea-..., same page
+//   life-dashboard-jwt-secret - Secret text, a real JWT signing secret
 //
-// PROVISION_AWS defaults to false: Build/Test/Push always run, but
-// Terraform/Deploy/Verify (the stages that touch real, billable AWS
-// resources) only run when explicitly opted into for a given build.
+// PROVISION_RENDER defaults to false: Build/Test/Push always run, but
+// Terraform/Verify (the stage that touches real Render resources - some
+// plans are billable) only runs when explicitly opted into for a given
+// build.
 pipeline {
     agent any
 
     parameters {
-        booleanParam(name: 'PROVISION_AWS', defaultValue: false,
-            description: 'Run terraform apply, deploy to EC2, and verify. Leave off to just build/test/push images.')
+        booleanParam(name: 'PROVISION_RENDER', defaultValue: false,
+            description: 'Run terraform apply against Render and verify the deployed services. Leave off to just build/test/push images.')
         booleanParam(name: 'DESTROY_AFTER_VERIFY', defaultValue: false,
-            description: 'Tear the EC2 instance back down (terraform destroy) once verification passes - handy for a one-shot demo run so nothing keeps billing.')
+            description: 'Tear the Render services back down (terraform destroy) once verification passes - handy for a one-shot demo run so nothing keeps billing/running.')
     }
 
     environment {
@@ -98,43 +104,32 @@ pipeline {
             }
         }
 
-        stage('Terraform: provision EC2') {
-            when { expression { params.PROVISION_AWS } }
+        stage('Terraform: provision Render services') {
+            when { expression { params.PROVISION_RENDER } }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                withCredentials([
+                    string(credentialsId: 'render-api-key', variable: 'RENDER_API_KEY'),
+                    string(credentialsId: 'render-owner-id', variable: 'RENDER_OWNER_ID'),
+                    string(credentialsId: 'life-dashboard-jwt-secret', variable: 'TF_VAR_jwt_secret_key')
+                ]) {
                     dir('terraform') {
                         sh '''
                             terraform init -input=false
                             terraform apply -auto-approve -input=false
-                            terraform output -raw instance_public_ip > ../ec2_host.txt
+                            terraform output -raw backend_url  > ../backend_url.txt
+                            terraform output -raw frontend_url > ../frontend_url.txt
                         '''
                     }
                 }
             }
         }
 
-        stage('Deploy to EC2') {
-            when { expression { params.PROVISION_AWS } }
-            steps {
-                withCredentials([
-                    sshUserPrivateKey(credentialsId: 'ec2-ssh-key', keyFileVariable: 'EC2_SSH_KEY'),
-                    string(credentialsId: 'life-dashboard-jwt-secret', variable: 'JWT_SECRET_KEY'),
-                    string(credentialsId: 'life-dashboard-db-password', variable: 'POSTGRES_PASSWORD')
-                ]) {
-                    sh '''
-                        export EC2_HOST=$(cat ec2_host.txt)
-                        chmod +x scripts/deploy.sh
-                        ./scripts/deploy.sh
-                    '''
-                }
-            }
-        }
-
         stage('Verify live application') {
-            when { expression { params.PROVISION_AWS } }
+            when { expression { params.PROVISION_RENDER } }
             steps {
                 sh '''
-                    export EC2_HOST=$(cat ec2_host.txt)
+                    export BACKEND_URL=$(cat backend_url.txt)
+                    export FRONTEND_URL=$(cat frontend_url.txt)
                     chmod +x scripts/verify.sh
                     ./scripts/verify.sh
                 '''
@@ -142,9 +137,13 @@ pipeline {
         }
 
         stage('Terraform: destroy (optional)') {
-            when { expression { params.PROVISION_AWS && params.DESTROY_AFTER_VERIFY } }
+            when { expression { params.PROVISION_RENDER && params.DESTROY_AFTER_VERIFY } }
             steps {
-                withCredentials([[$class: 'AmazonWebServicesCredentialsBinding', credentialsId: 'aws-creds']]) {
+                withCredentials([
+                    string(credentialsId: 'render-api-key', variable: 'RENDER_API_KEY'),
+                    string(credentialsId: 'render-owner-id', variable: 'RENDER_OWNER_ID'),
+                    string(credentialsId: 'life-dashboard-jwt-secret', variable: 'TF_VAR_jwt_secret_key')
+                ]) {
                     dir('terraform') {
                         sh 'terraform destroy -auto-approve -input=false'
                     }
@@ -158,9 +157,9 @@ pipeline {
             sh 'docker logout || true'
         }
         success {
-            echo params.PROVISION_AWS
-                ? "Built ${BACKEND_IMAGE}:${IMAGE_TAG}, pushed to Docker Hub, deployed to EC2, and verified live."
-                : "Built and pushed ${BACKEND_IMAGE}:${IMAGE_TAG} / ${FRONTEND_IMAGE}:${IMAGE_TAG}. Re-run with PROVISION_AWS to deploy."
+            echo params.PROVISION_RENDER
+                ? "Built ${BACKEND_IMAGE}:${IMAGE_TAG}, pushed to Docker Hub, provisioned/updated Render, and verified live."
+                : "Built and pushed ${BACKEND_IMAGE}:${IMAGE_TAG} / ${FRONTEND_IMAGE}:${IMAGE_TAG}. Re-run with PROVISION_RENDER to deploy."
         }
     }
 }

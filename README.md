@@ -52,16 +52,14 @@ life_dashboard/
 │   │   └── pages/               # Login, Register, Dashboard, Transactions,
 │   │                             Subscriptions, Goals, Plans, admin/
 │   ├── Dockerfile              # build: vite build → nginx:alpine serving dist/
-│   ├── nginx.conf              # SPA fallback + reverse-proxy to the backend
+│   ├── nginx.conf.template     # SPA fallback + reverse-proxy, envsubst's $BACKEND_ORIGIN
 │   └── .env.example
 ├── jenkins/                    # local Jenkins image (Docker CLI, Terraform, JCasC)
-├── terraform/                  # AWS EC2 provisioning (main.tf, variables.tf, ...)
+├── terraform/                  # Render provisioning (main.tf, variables.tf, ...)
 ├── scripts/
-│   ├── deploy.sh                # scp compose file + pull/up on the EC2 host
 │   └── verify.sh                # poll the live app until it responds
 ├── Dockerfile                  # backend image
 ├── docker-compose.yml          # local dev stack: db + backend + frontend
-├── docker-compose.prod.yml     # deploy-time stack: pulls images from Docker Hub
 ├── docker-compose.jenkins.yml  # local Jenkins
 ├── Jenkinsfile
 ├── requirements.txt
@@ -145,32 +143,42 @@ docker compose up --build
 ```
 Frontend at http://localhost, backend at http://localhost:8000. The frontend
 image's nginx reverse-proxies `/auth`, `/transactions`, `/subscriptions`,
-`/goals`, `/plans`, `/admin`, and `/health` to the backend container (see
-`frontend/nginx.conf`), so the built frontend calls same-origin relative
-paths rather than hardcoding a backend host.
+`/goals`, `/plans`, `/admin`, and `/health` to `$BACKEND_ORIGIN` (see
+`frontend/nginx.conf.template`, envsubst'd in at container start - defaults
+to `http://backend:8000`, the compose network hostname), so the built
+frontend calls same-origin relative paths rather than hardcoding a backend
+host. The same image is what Render deploys (see CI/CD below) - only
+`BACKEND_ORIGIN` differs, set to the backend service's public Render URL.
 
 > If port 8000 or 80 is already taken by something else on your machine, override
 > the host side: `BACKEND_PORT=8010 FRONTEND_PORT=8080 docker compose up --build`.
 
-## CI/CD: Claude Code → Docker → GitHub → Jenkins → Terraform → AWS EC2 → Docker Hub → Deploy → Verify
+## CI/CD: Claude Code → Docker → GitHub → Jenkins → Terraform → Render → Docker Hub → Deploy → Verify
+
+Render builds and deploys straight from this repo's Dockerfiles (each
+`render_web_service` in `terraform/main.tf` points at a `dockerfile_path`
+with `auto_deploy = true`) - there's no separate SSH-into-a-server deploy
+step or cloud IAM setup. `terraform apply` creates/updates the two web
+services (backend, frontend) and a Postgres instance; Render's own
+auto-deploy is what actually builds and runs them.
 
 ```
 Docker images (Dockerfile, frontend/Dockerfile)
         ↓ git push
 GitHub (this repo)
-        ↓ Jenkins polls/clones on build
+        ↓ Jenkins polls/clones on build; Render builds straight from here too
 Jenkins pipeline (Jenkinsfile)
   ├─ Test        - backend import smoke test + frontend lint/typecheck
-  ├─ Build images - docker build backend + frontend
+  ├─ Build images - docker build backend + frontend (still pushed to Docker
+  │                 Hub as a versioned artifact, independent of Render)
   ├─ Push        - docker push to Docker Hub (ashishghmr8848/life-dashboard-*)
   │                                    [stages below run only when the job is
-  │                                     started with PROVISION_AWS=true]
-  ├─ Terraform    - terraform apply (terraform/) provisions one EC2 instance
-  ├─ Deploy       - scripts/deploy.sh scp's docker-compose.prod.yml to the
-  │                 instance and runs `docker compose up -d`, pulling the
-  │                 images Jenkins just pushed
-  └─ Verify       - scripts/verify.sh polls the live URL until /health and
-                    the frontend both respond, failing the build if they don't
+  │                                     started with PROVISION_RENDER=true]
+  ├─ Terraform    - terraform apply (terraform/) creates/updates the Render
+  │                 web services + Postgres instance
+  └─ Verify       - scripts/verify.sh polls backend_url/health and
+                    frontend_url until both respond, failing the build if
+                    they don't (Render's first build can take a few minutes)
 ```
 
 **Run Jenkins locally** (self-contained, nothing external required beyond a
@@ -190,23 +198,27 @@ automated - they're real secrets):
 | Credential ID | Type | Used for |
 |---|---|---|
 | `dockerhub-creds` | Username/password | A Docker Hub access token, for `docker push` |
-| `aws-creds` | AWS credentials | `terraform apply` / `destroy` |
-| `ec2-ssh-key` | SSH username with private key | `scripts/deploy.sh`'s scp/ssh to the instance |
+| `render-api-key` | Secret text | Render API key (Account Settings), for `terraform apply`/`destroy` |
+| `render-owner-id` | Secret text | Your Render owner id (`usr-...` or `tea-...`, same page) |
 | `life-dashboard-jwt-secret` | Secret text | Real `JWT_SECRET_KEY` for the deployed backend |
-| `life-dashboard-db-password` | Secret text | Postgres password for the deployed stack |
 
-**Provisioning AWS is opt-in per build** — the job's `PROVISION_AWS` parameter
-defaults to `false`, so a normal build only builds/tests/pushes images. Check
-it to also run Terraform, deploy, and verify against a real (billable)
-`t3.micro` EC2 instance; check `DESTROY_AFTER_VERIFY` alongside it to have
-the job tear the instance back down once verification passes, for a one-shot
-demo run that doesn't keep billing.
+**Provisioning Render is opt-in per build** — the job's `PROVISION_RENDER`
+parameter defaults to `false`, so a normal build only builds/tests/pushes
+images. Check it to also run Terraform and verify the deployed services;
+check `DESTROY_AFTER_VERIFY` alongside it to have the job tear them back
+down once verification passes, for a one-shot demo run. The `free` plan
+(the default in `terraform/variables.tf`) doesn't bill, but does spin the
+service down after inactivity and cold-start on the next request, and
+Render's free Postgres expires after a fixed period - fine for a demo,
+upgrade `plan`/`db_plan` to `starter` for anything longer-lived.
 
 To run Terraform by hand instead of through Jenkins:
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars   # fill in your values
-ssh-keygen -t ed25519 -f ~/.ssh/life_dashboard_ec2 -N ""
+export RENDER_API_KEY=...      # from Render's Account Settings
+export RENDER_OWNER_ID=...     # usr-... or tea-..., same page
+export TF_VAR_jwt_secret_key=$(python -c "import secrets; print(secrets.token_urlsafe(48))")
 terraform init
 terraform apply
 ```

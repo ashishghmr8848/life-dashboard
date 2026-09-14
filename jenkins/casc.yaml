@@ -5,10 +5,10 @@
 #
 # This wires up ONLY what can be provisioned without a human pasting a
 # secret in: the admin login and a GitHub credential for cloning this repo.
-# Docker Hub, AWS, the EC2 SSH key, and the app secrets (JWT/DB password)
-# are deliberately NOT set here - add those yourself under Manage Jenkins >
-# Credentials once you're ready to run the Push/Terraform/Deploy stages for
-# real (see README's CI/CD section for the exact credential IDs expected).
+# Docker Hub, Render, and the app's JWT secret are deliberately NOT set here
+# - add those yourself under Manage Jenkins > Credentials once you're ready
+# to run the Push/Terraform/Verify stages for real (see README's CI/CD
+# section for the exact credential IDs expected).
 jenkins:
   systemMessage: "Life Dashboard CI"
   numExecutors: 2

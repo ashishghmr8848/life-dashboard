@@ -1,0 +1,28 @@
+server {
+    listen 80;
+    server_name _;
+    root /usr/share/nginx/html;
+    index index.html;
+
+    # Proxy every backend router prefix straight through to the API.
+    # ${BACKEND_ORIGIN} is envsubst'd in at container start (nginx's stock
+    # entrypoint does this for any file under /etc/nginx/templates/) so the
+    # same image works unmodified whether the backend is a docker-compose
+    # network hostname (BACKEND_ORIGIN=http://backend:8000, the default) or
+    # a separate deployed service's public URL (e.g. on Render, where
+    # frontend and backend are independent services with no shared network -
+    # see terraform/main.tf). Keep the path list in sync with app/routers/*.py.
+    location ~ ^/(auth|admin|transactions|subscriptions|goals|plans|health)(/|$) {
+        proxy_pass ${BACKEND_ORIGIN};
+        proxy_ssl_server_name on;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # SPA fallback - client-side routing (react-router) handles the rest.
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+}

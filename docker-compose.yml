@@ -1,6 +1,6 @@
-# Local dev/test stack: builds images from source. For deployment, Jenkins
-# pushes prebuilt images to Docker Hub and the EC2 host runs
-# docker-compose.prod.yml instead (pulls, doesn't build).
+# Local dev/test stack: builds images from source. Deployment is via Render
+# (see terraform/), which builds the same Dockerfiles straight from GitHub -
+# this compose file is for local development only.
 services:
   db:
     image: postgres:16-alpine
