@@ -92,15 +92,21 @@ pipeline {
         }
 
         stage('Push to Docker Hub') {
+            // Non-fatal: these images are a versioned artifact independent
+            // of Render (which builds its own from the Dockerfile directly -
+            // see terraform/main.tf). A missing dockerhub-creds shouldn't
+            // block the Terraform/Verify stages below.
             steps {
-                withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
-                        usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_TOKEN')]) {
-                    sh 'echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin'
+                catchError(buildResult: null, stageResult: 'FAILURE') {
+                    withCredentials([usernamePassword(credentialsId: 'dockerhub-creds',
+                            usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_TOKEN')]) {
+                        sh 'echo "$DOCKERHUB_TOKEN" | docker login -u "$DOCKERHUB_USER" --password-stdin'
+                    }
+                    sh "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
+                    sh "docker push ${BACKEND_IMAGE}:latest"
+                    sh "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
+                    sh "docker push ${FRONTEND_IMAGE}:latest"
                 }
-                sh "docker push ${BACKEND_IMAGE}:${IMAGE_TAG}"
-                sh "docker push ${BACKEND_IMAGE}:latest"
-                sh "docker push ${FRONTEND_IMAGE}:${IMAGE_TAG}"
-                sh "docker push ${FRONTEND_IMAGE}:latest"
             }
         }
 

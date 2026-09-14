@@ -3,12 +3,10 @@
 # docker-compose.jenkins.yml / .env.jenkins (gitignored) - nothing secret is
 # baked into this file itself.
 #
-# This wires up ONLY what can be provisioned without a human pasting a
-# secret in: the admin login and a GitHub credential for cloning this repo.
-# Docker Hub, Render, and the app's JWT secret are deliberately NOT set here
-# - add those yourself under Manage Jenkins > Credentials once you're ready
-# to run the Push/Terraform/Verify stages for real (see README's CI/CD
-# section for the exact credential IDs expected).
+# github-creds reuses the local gh CLI token; render-api-key/render-owner-id/
+# life-dashboard-jwt-secret come from .env.jenkins once you've pasted a real
+# Render API key there. Docker Hub is deliberately left for manual setup
+# under Manage Jenkins > Credentials regardless (see README's CI/CD section).
 jenkins:
   systemMessage: "Life Dashboard CI"
   numExecutors: 2
@@ -32,6 +30,21 @@ credentials:
               username: "${GITHUB_USERNAME}"
               password: "${GITHUB_TOKEN}"
               description: "GitHub - clone ashishghmr8848/life-dashboard"
+          - string:
+              scope: GLOBAL
+              id: "render-api-key"
+              secret: "${RENDER_API_KEY}"
+              description: "Render API key - terraform apply/destroy"
+          - string:
+              scope: GLOBAL
+              id: "render-owner-id"
+              secret: "${RENDER_OWNER_ID}"
+              description: "Render owner id (tea-.../usr-...) - terraform apply/destroy"
+          - string:
+              scope: GLOBAL
+              id: "life-dashboard-jwt-secret"
+              secret: "${LIFE_DASHBOARD_JWT_SECRET}"
+              description: "Real JWT_SECRET_KEY for the deployed backend"
 
 jobs:
   - script: >
