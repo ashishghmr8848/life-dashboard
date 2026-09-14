@@ -20,4 +20,10 @@ class User(Base):
     is_admin = Column(Boolean, nullable=False, default=False)
     is_active = Column(Boolean, nullable=False, default=True)
 
+    # Forgot-password flow (app/routers/auth.py): a hashed, short-lived,
+    # single-use 6-digit code emailed to the account's own address. Cleared
+    # on successful use; a new request overwrites any code still pending.
+    reset_code_hash = Column(String(255), nullable=True)
+    reset_code_expires_at = Column(DateTime, nullable=True)
+
     created_at = Column(DateTime, default=datetime.utcnow)

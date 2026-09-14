@@ -57,7 +57,15 @@ export default function Login() {
               />
             </FormRow>
             <FormRow className="mb-2">
-              <FieldLabel htmlFor="password">Password</FieldLabel>
+              <div className="flex items-center justify-between">
+                <FieldLabel htmlFor="password">Password</FieldLabel>
+                <Link
+                  to="/forgot-password"
+                  className="text-xs font-medium text-[var(--accent)] hover:underline"
+                >
+                  Forgot password?
+                </Link>
+              </div>
               <Input
                 id="password"
                 type="password"

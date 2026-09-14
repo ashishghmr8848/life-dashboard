@@ -22,7 +22,8 @@ life_dashboard/
 │   ├── database.py          # engine, session, Base
 │   ├── auth.py                # get_current_user / get_current_admin dependencies
 │   ├── core/
-│   │   └── security.py        # password hashing, JWT encode/decode
+│   │   ├── security.py        # password hashing, JWT encode/decode, reset codes
+│   │   └── email.py            # SMTP send - forgot-password codes
 │   ├── models/               # SQLAlchemy models
 │   │   ├── user.py
 │   │   ├── transaction.py
@@ -37,7 +38,7 @@ life_dashboard/
 │   │   ├── goal.py
 │   │   └── plan.py
 │   └── routers/               # API endpoints
-│       ├── auth.py            # register / login / me
+│       ├── auth.py            # register / login / me / forgot-password / reset-password
 │       ├── admin.py           # admin-only: list/view every account
 │       ├── transactions.py
 │       ├── subscriptions.py
@@ -49,8 +50,8 @@ life_dashboard/
 │   │   ├── context/            # AuthContext (session, login/register/logout)
 │   │   ├── hooks/              # React Query hooks per resource
 │   │   ├── lib/                 # api client, types, formatting, theme
-│   │   └── pages/               # Login, Register, Dashboard, Transactions,
-│   │                             Subscriptions, Goals, Plans, admin/
+│   │   └── pages/               # Login, Register, ForgotPassword, Dashboard,
+│   │                             Transactions, Subscriptions, Goals, Plans, admin/
 │   ├── Dockerfile              # build: vite build → nginx:alpine serving dist/
 │   ├── nginx.conf.template     # SPA fallback + reverse-proxy, envsubst's $BACKEND_ORIGIN
 │   └── .env.example
@@ -201,6 +202,7 @@ automated - they're real secrets):
 | `render-api-key` | Secret text | Render API key (Account Settings), for `terraform apply`/`destroy` |
 | `render-owner-id` | Secret text | Your Render owner id (`usr-...` or `tea-...`, same page) |
 | `life-dashboard-jwt-secret` | Secret text | Real `JWT_SECRET_KEY` for the deployed backend |
+| `smtp-username` / `smtp-password` | Secret text | Forgot-password emails (a Gmail address + App Password, or leave both empty to disable sending - see "Password reset" above) |
 
 **Provisioning Render is opt-in per build** — the job's `PROVISION_RENDER`
 parameter defaults to `false`, so a normal build only builds/tests/pushes
@@ -226,6 +228,8 @@ cp terraform.tfvars.example terraform.tfvars   # fill in your values
 export RENDER_API_KEY=...      # from Render's Account Settings
 export RENDER_OWNER_ID=...     # usr-... or tea-..., same page
 export TF_VAR_jwt_secret_key=$(python -c "import secrets; print(secrets.token_urlsafe(48))")
+export TF_VAR_smtp_username=...  # Gmail address, or leave unset to disable emailing codes
+export TF_VAR_smtp_password=...  # Gmail App Password, not your real password
 terraform init
 terraform apply
 ```
@@ -264,6 +268,9 @@ terraform apply
 - "Log charge" on a subscription - records the actual transaction (so it counts
   toward Spend) and rolls the subscription's next due date forward
 - Light/dark theme, responsive down to phone width
+- Forgot password: emails a 6-digit passcode (`POST /auth/forgot-password`),
+  expires in 15 minutes, single-use, signs the user straight in on success
+  (`POST /auth/reset-password`) - see "Password reset" below
 
 ## What's next
 
@@ -281,17 +288,36 @@ terraform apply
 - `GET /transactions/summary` sums debits and credits together per category; the
   frontend dashboard instead computes its own debit-only category breakdown
   client-side to avoid netting spend against income.
-- No email verification, password reset, or rate limiting on login attempts.
+- No email verification or rate limiting on login attempts (password reset
+  exists now - see below - but nothing throttles repeated `/auth/login` or
+  `/auth/forgot-password` calls).
 - The frontend stores the JWT in `localStorage` (standard for a cross-origin
   SPA+API in local dev), which is more exposed to XSS than an httpOnly cookie
   would be. Reasonable for personal/family use on trusted machines; worth
   revisiting (e.g. httpOnly cookie + matching domain/HTTPS) before exposing
   this beyond localhost to people you don't trust with each other's sessions.
 
+## Password reset
+
+`Forgot password?` on the login page → email → a 6-digit code is emailed to
+that address (`app/core/email.py`, plain SMTP + STARTTLS) → code + new
+password → signed in. The code is bcrypt-hashed at rest (`users.reset_code_hash`),
+expires after 15 minutes, and is cleared after one use. `/auth/forgot-password`
+always returns the same response whether or not the email is registered, so it
+can't be used to enumerate accounts.
+
+Without `SMTP_HOST`/`SMTP_USERNAME`/`SMTP_PASSWORD` set, the app still works -
+it just logs the "would have sent" message instead of emailing anything, so
+local dev needs no SMTP setup. To actually send codes, copy `.env.example`'s
+`SMTP_*` block into `.env`. For Gmail: turn on 2-Step Verification, then
+Google Account → Security → App Passwords → generate one and use it as
+`SMTP_PASSWORD` (not your real password).
+
 ## Security notes
 
 - Never commit `.env` (backend or frontend) — both are covered by `.gitignore`.
-  This includes `JWT_SECRET_KEY` - generate your own, never reuse the example.
-- Auth is wired up (see "Accounts & admin"), but there's still no rate limiting,
-  email verification, or password reset flow - add those before exposing this
-  beyond a small trusted group.
+  This includes `JWT_SECRET_KEY` and `SMTP_PASSWORD` - generate/obtain your
+  own, never reuse the example.
+- Auth is wired up (see "Accounts & admin") and password reset exists (see
+  above), but there's still no rate limiting or email verification - add
+  those before exposing this beyond a small trusted group.

@@ -1,4 +1,5 @@
 import os
+import secrets
 import warnings
 from datetime import datetime, timedelta, timezone
 
@@ -51,3 +52,24 @@ def decode_access_token(token: str) -> str:
     (ExpiredSignatureError, InvalidTokenError, ...) on anything invalid."""
     payload = jwt.decode(token, JWT_SECRET_KEY, algorithms=[JWT_ALGORITHM])
     return payload["sub"]
+
+
+def generate_reset_code() -> str:
+    """A 6-digit numeric passcode, e.g. for the forgot-password flow. Uses
+    secrets (not random) since it's a credential, short as it is."""
+    return f"{secrets.randbelow(1_000_000):06d}"
+
+
+def hash_reset_code(code: str) -> str:
+    # Same bcrypt scheme as passwords - the 72-byte truncation is a
+    # non-issue at 6 characters, and reusing hash/verify_password directly
+    # would blur "this hashes a login credential" with "this hashes a
+    # short-lived OTP", so these stay separate despite the identical body.
+    return bcrypt.hashpw(code.encode("utf-8"), bcrypt.gensalt()).decode("utf-8")
+
+
+def verify_reset_code(code: str, hashed_code: str) -> bool:
+    try:
+        return bcrypt.checkpw(code.encode("utf-8"), hashed_code.encode("utf-8"))
+    except ValueError:
+        return False

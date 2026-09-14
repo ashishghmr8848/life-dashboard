@@ -102,6 +102,16 @@ export interface LoginInput {
   password: string
 }
 
+export interface ForgotPasswordInput {
+  email: string
+}
+
+export interface ResetPasswordInput {
+  email: string
+  code: string
+  new_password: string
+}
+
 export interface AdminUserSummary {
   id: string
   email: string

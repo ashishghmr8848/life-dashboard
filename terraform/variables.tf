@@ -39,3 +39,33 @@ variable "jwt_secret_key" {
   type        = string
   sensitive   = true
 }
+
+variable "smtp_host" {
+  description = "SMTP host for forgot-password emails (app/core/email.py). Defaults to Gmail's; email sending stays off regardless as long as smtp_username/smtp_password are blank - the app still works, it just logs the code instead."
+  type        = string
+  default     = "smtp.gmail.com"
+}
+
+variable "smtp_port" {
+  type    = number
+  default = 587
+}
+
+variable "smtp_username" {
+  type      = string
+  default   = ""
+  sensitive = true
+}
+
+variable "smtp_password" {
+  description = "An app password (e.g. Gmail), not a real account password."
+  type        = string
+  default     = ""
+  sensitive   = true
+}
+
+variable "smtp_from" {
+  description = "Defaults to smtp_username if left blank."
+  type        = string
+  default     = ""
+}

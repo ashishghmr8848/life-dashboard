@@ -4,12 +4,14 @@ import type {
   AdminUserSummary,
   AuthResponse,
   CategorySummary,
+  ForgotPasswordInput,
   Goal,
   GoalInput,
   LoginInput,
   Plan,
   PlanInput,
   RegisterInput,
+  ResetPasswordInput,
   Subscription,
   SubscriptionInput,
   Transaction,
@@ -77,6 +79,14 @@ export const authApi = {
   },
   me: async () => {
     const { data } = await api.get<User>("/auth/me")
+    return data
+  },
+  forgotPassword: async (payload: ForgotPasswordInput) => {
+    const { data } = await api.post<{ detail: string }>("/auth/forgot-password", payload)
+    return data
+  },
+  resetPassword: async (payload: ResetPasswordInput) => {
+    const { data } = await api.post<AuthResponse>("/auth/reset-password", payload)
     return data
   },
 }

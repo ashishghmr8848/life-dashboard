@@ -116,7 +116,13 @@ pipeline {
                 withCredentials([
                     string(credentialsId: 'render-api-key', variable: 'RENDER_API_KEY'),
                     string(credentialsId: 'render-owner-id', variable: 'RENDER_OWNER_ID'),
-                    string(credentialsId: 'life-dashboard-jwt-secret', variable: 'TF_VAR_jwt_secret_key')
+                    string(credentialsId: 'life-dashboard-jwt-secret', variable: 'TF_VAR_jwt_secret_key'),
+                    // Forgot-password emails. If you don't want these live,
+                    // create smtp-username/smtp-password as empty Secret
+                    // text credentials - terraform/variables.tf's smtp_host
+                    // default ("") already disables sending either way.
+                    string(credentialsId: 'smtp-username', variable: 'TF_VAR_smtp_username'),
+                    string(credentialsId: 'smtp-password', variable: 'TF_VAR_smtp_password')
                 ]) {
                     dir('terraform') {
                         sh '''

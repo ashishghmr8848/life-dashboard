@@ -27,6 +27,15 @@ services:
       DATABASE_URL: postgresql://postgres:postgres@db:5432/life_dashboard
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:-change-me-to-a-random-secret}
       JWT_EXPIRE_MINUTES: ${JWT_EXPIRE_MINUTES:-10080}
+      # Forgot-password emails - unset by default, so /auth/forgot-password
+      # just logs the code instead of sending it (see app/core/email.py).
+      # Set these in a .env file (gitignored) to actually send real emails
+      # from your local dev stack.
+      SMTP_HOST: ${SMTP_HOST:-}
+      SMTP_PORT: ${SMTP_PORT:-587}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-}
     ports:
       - "${BACKEND_PORT:-8000}:8000"
 

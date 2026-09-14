@@ -38,6 +38,11 @@ resource "render_web_service" "backend" {
     DATABASE_URL       = { value = render_postgres.db.connection_info.internal_connection_string }
     JWT_SECRET_KEY     = { value = var.jwt_secret_key }
     JWT_EXPIRE_MINUTES = { value = "10080" }
+    SMTP_HOST          = { value = var.smtp_host }
+    SMTP_PORT          = { value = tostring(var.smtp_port) }
+    SMTP_USERNAME      = { value = var.smtp_username }
+    SMTP_PASSWORD      = { value = var.smtp_password }
+    SMTP_FROM          = { value = var.smtp_from != "" ? var.smtp_from : var.smtp_username }
   }
 }
 
