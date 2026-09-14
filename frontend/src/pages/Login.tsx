@@ -40,6 +40,7 @@ export default function Login() {
             <Wallet className="h-5 w-5" />
           </div>
           <h1 className="text-lg font-semibold text-[var(--text-primary)]">Life Dashboard</h1>
+          <p className="text-xs text-[var(--text-secondary)]">Deployed live on Render</p>
         </div>
 
         <Card className="p-6">
