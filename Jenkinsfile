@@ -38,18 +38,33 @@ pipeline {
 
         stage('Test') {
             parallel {
+                // Runs in the same base image as the backend Dockerfile
+                // (python:3.12-slim) rather than whatever Python the Jenkins
+                // host happens to ship, so the pinned requirements.txt
+                // (psycopg2-binary in particular) resolves the same prebuilt
+                // wheels production uses instead of trying to compile from
+                // source against a mismatched Python.
                 stage('Backend import smoke test') {
+                    agent {
+                        docker {
+                            image 'python:3.12-slim'
+                            reuseNode true
+                        }
+                    }
                     steps {
                         sh '''
-                            python3 -m venv .ci-venv
-                            . .ci-venv/bin/activate
                             pip install --quiet -r requirements.txt
                             python -c "import app.main"
-                            deactivate
                         '''
                     }
                 }
                 stage('Frontend lint + typecheck') {
+                    agent {
+                        docker {
+                            image 'node:20-alpine'
+                            reuseNode true
+                        }
+                    }
                     steps {
                         dir('frontend') {
                             sh '''
